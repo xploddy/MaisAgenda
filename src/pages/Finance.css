@@ -1,0 +1,7 @@
+.card-balance {
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    color: white;
+    padding: 1.5rem;
+    border-radius: 1.5rem;
+    box-shadow: var(--shadow-lg);
+}

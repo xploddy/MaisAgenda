@@ -1,0 +1,31 @@
+.shopping-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.shopping-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.shopping-item {
+    background-color: var(--color-surface);
+    padding: 0.75rem 1rem;
+    border-radius: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--color-bg);
+}
+
+.shopping-item:last-child {
+    border-bottom: none;
+}
+
+.shopping-item.bought {
+    opacity: 0.5;
+    text-decoration: line-through;
+}

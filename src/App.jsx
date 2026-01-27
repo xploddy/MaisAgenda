@@ -12,7 +12,7 @@ import Login from './pages/Login'
 function App() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [theme, setTheme] = useState('light')
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light')
 
   useEffect(() => {
     // Session check
@@ -25,19 +25,17 @@ function App() {
       setSession(session)
     })
 
-    // Theme initialization
-    const savedTheme = localStorage.getItem('theme') || 'light'
-    setTheme(savedTheme)
-    document.body.className = `${savedTheme}-theme`
+    // Apply theme on mount
+    document.documentElement.setAttribute('data-theme', theme);
+    document.body.className = `${theme}-theme`;
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, [theme])
 
   const toggleTheme = () => {
     const newTheme = theme === 'light' ? 'dark' : 'light'
     setTheme(newTheme)
     localStorage.setItem('theme', newTheme)
-    document.body.className = `${newTheme}-theme`
   }
 
   if (loading) {
@@ -53,7 +51,7 @@ function App() {
       ) : (
         <Layout toggleTheme={toggleTheme} currentTheme={theme}>
           <Routes>
-            <Route path="/" element={<Dashboard />} />
+            <Route path="/" element={<Dashboard toggleTheme={toggleTheme} currentTheme={theme} />} />
             <Route path="/tasks" element={<Tasks />} />
             <Route path="/shopping" element={<Shopping />} />
             <Route path="/planning" element={<Planning />} />

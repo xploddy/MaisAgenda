@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Check, ChevronLeft, Calendar, X, Trash2 } from 'lucide-react';
+import { Plus, Check, ChevronLeft, Calendar, X, Trash2, Edit2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import './Tasks.css';
@@ -7,8 +7,7 @@ import './Tasks.css';
 const Tasks = () => {
     const navigate = useNavigate();
     const [tasks, setTasks] = useState([]);
-    const [activeTab, setActiveTab] = useState('Trabalho');
-    const [timeFilter, setTimeFilter] = useState('Hoje');
+    const [activeTab, setActiveTab] = useState('Todos');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTask, setEditingTask] = useState(null);
     const [formData, setFormData] = useState({ title: '', category: 'Trabalho', priority: 'medium' });
@@ -56,7 +55,7 @@ const Tasks = () => {
             setFormData({ title: task.title, category: task.category, priority: task.priority });
         } else {
             setEditingTask(null);
-            setFormData({ title: '', category: activeTab, priority: 'medium' });
+            setFormData({ title: '', category: activeTab === 'Todos' ? 'Trabalho' : activeTab, priority: 'medium' });
         }
         setIsModalOpen(true);
     };
@@ -71,15 +70,15 @@ const Tasks = () => {
                 <button className="icon-btn" style={{ padding: '0.4rem', border: 'none', background: 'transparent', boxShadow: 'none' }} onClick={() => navigate('/')}>
                     <ChevronLeft size={24} color="#6b7280" />
                 </button>
-                <h1>Minhas Tarefas</h1>
+                <h1 style={{ color: 'var(--color-text-main)' }}>Minhas Tarefas</h1>
                 <button className="icon-btn" style={{ padding: '0.4rem', border: 'none', background: 'transparent', boxShadow: 'none' }} onClick={() => openModal()}>
                     <Plus size={24} color="#1d4ed8" />
                 </button>
             </header>
 
-            {/* Category Filter Tabs - Image Style */}
-            <div className="sub-tabs" style={{ marginBottom: '1.5rem', background: '#ccc', padding: '0.3rem' }}>
-                {['Trabalho', 'Pessoal', 'Projetos', 'Todos'].map(tab => (
+            {/* Category Filter Tabs - Starting with Todos */}
+            <div className="sub-tabs" style={{ marginBottom: '1.5rem', background: 'rgba(0,0,0,0.05)', padding: '0.3rem' }}>
+                {['Todos', 'Trabalho', 'Pessoal', 'Projetos'].map(tab => (
                     <button
                         key={tab}
                         className={`sub-tab-btn ${activeTab === tab ? 'active' : ''}`}
@@ -90,23 +89,7 @@ const Tasks = () => {
                 ))}
             </div>
 
-            {/* Sub Filter */}
-            <div className="category-tabs" style={{ background: 'transparent', border: 'none', boxShadow: 'none', padding: 0 }}>
-                {['Hoje', 'Semana', 'Todas'].map(filter => (
-                    <button
-                        key={filter}
-                        className={`tab-btn ${timeFilter === filter ? 'active' : ''}`}
-                        onClick={() => setTimeFilter(filter)}
-                    >
-                        <div className="flex items-center gap-1">
-                            {filter === 'Hoje' && <Calendar size={14} />}
-                            {filter}
-                        </div>
-                    </button>
-                ))}
-            </div>
-
-            <div className="task-list" style={{ marginTop: '1.5rem' }}>
+            <div className="task-list">
                 {filteredTasks.length === 0 ? (
                     <div className="text-center text-muted py-10">Lista vazia.</div>
                 ) : (
@@ -122,11 +105,11 @@ const Tasks = () => {
                                 </span>
                             </div>
                             <div className="flex gap-2">
-                                <button className="icon-btn" style={{ background: '#ecfdf5', color: '#10b981', padding: '0.3rem' }}>
-                                    <Check size={14} />
+                                <button onClick={() => openModal(task)} className="icon-btn" style={{ background: '#eff6ff', color: '#1d4ed8', padding: '0.4rem', border: 'none' }}>
+                                    <Edit2 size={16} />
                                 </button>
-                                <button onClick={() => deleteTask(task.id)} className="icon-btn" style={{ background: '#fef2f2', color: '#ef4444', padding: '0.3rem' }}>
-                                    <Trash2 size={14} />
+                                <button onClick={() => deleteTask(task.id)} className="icon-btn" style={{ background: '#fef2f2', color: '#ef4444', padding: '0.4rem', border: 'none' }}>
+                                    <Trash2 size={16} />
                                 </button>
                             </div>
                         </div>

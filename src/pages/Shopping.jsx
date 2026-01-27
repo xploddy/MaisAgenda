@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, X, Check, ChevronLeft, MoreHorizontal } from 'lucide-react';
+import { Plus, Trash2, X, Check, ChevronLeft, MoreHorizontal, Edit2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import './Shopping.css';
@@ -8,10 +8,10 @@ import './Tasks.css';
 const Shopping = () => {
     const navigate = useNavigate();
     const [items, setItems] = useState([]);
-    const [activeTab, setActiveTab] = useState('Mercearia');
+    const [activeTab, setActiveTab] = useState('Mercado');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
-    const [formData, setFormData] = useState({ name: '', category: 'Mercearia' });
+    const [formData, setFormData] = useState({ name: '', category: 'Mercado' });
 
     useEffect(() => {
         fetchItems();
@@ -30,6 +30,7 @@ const Shopping = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
+        // Map UI names to DB names if necessary, but here we just use the UI names
         if (editingItem) {
             await supabase.from('shopping_items').update({ ...formData }).eq('id', editingItem.id);
         } else {
@@ -64,7 +65,7 @@ const Shopping = () => {
     const closeModal = () => { setIsModalOpen(false); setEditingItem(null); };
 
     const filteredItems = items.filter(i => i.category === activeTab);
-    const tabs = ['Mercearia', 'Limpeza', 'Farmácia', 'Outros'];
+    const tabs = ['Mercado', 'Casa', 'Pessoal', 'Outros'];
 
     return (
         <div className="shopping-page animate-fade-in">
@@ -72,13 +73,13 @@ const Shopping = () => {
                 <button className="icon-btn" style={{ background: 'transparent', border: 'none', boxShadow: 'none' }} onClick={() => navigate('/')}>
                     <ChevronLeft size={24} color="#6b7280" />
                 </button>
-                <h1>Minhas Compras</h1>
+                <h1 style={{ color: 'var(--color-text-main)' }}>Minhas Compras</h1>
                 <button className="icon-btn" style={{ background: 'transparent', border: 'none', boxShadow: 'none' }}>
                     <MoreHorizontal size={24} color="#6b7280" />
                 </button>
             </header>
 
-            <div className="sub-tabs" style={{ marginBottom: '1.5rem', background: '#ccc', padding: '0.3rem' }}>
+            <div className="sub-tabs" style={{ marginBottom: '1.5rem', background: 'rgba(0,0,0,0.05)', padding: '0.3rem' }}>
                 {tabs.map(tab => (
                     <button
                         key={tab}
@@ -101,8 +102,8 @@ const Shopping = () => {
                             </div>
                             <div className="item-name" style={{ color: 'var(--color-text-main)' }} onClick={() => openModal(item)}>{item.name}</div>
                             <div className="flex gap-2">
-                                <div className="check-badge"><Check size={14} /></div>
-                                <button onClick={() => deleteItem(item.id)} className="icon-btn" style={{ background: '#fef2f2', color: '#ef4444', border: 'none', padding: '0.3rem' }}><Trash2 size={14} /></button>
+                                <button onClick={() => openModal(item)} className="icon-btn" style={{ background: '#eff6ff', color: '#1d4ed8', border: 'none', padding: '0.4rem' }}><Edit2 size={14} /></button>
+                                <button onClick={() => deleteItem(item.id)} className="icon-btn" style={{ background: '#fef2f2', color: '#ef4444', border: 'none', padding: '0.4rem' }}><Trash2 size={14} /></button>
                             </div>
                         </div>
                     ))

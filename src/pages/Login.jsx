@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import { LayoutGrid } from 'lucide-react';
@@ -19,17 +19,11 @@ const Login = () => {
 
         try {
             if (isSignUp) {
-                const { error } = await supabase.auth.signUp({
-                    email,
-                    password,
-                });
+                const { error } = await supabase.auth.signUp({ email, password });
                 if (error) throw error;
-                alert('Cadastro realizado! Verifique seu e-mail para confirmar.');
+                alert('Cadastro realizado! Verifique seu e-mail.');
             } else {
-                const { error } = await supabase.auth.signInWithPassword({
-                    email,
-                    password,
-                });
+                const { error } = await supabase.auth.signInWithPassword({ email, password });
                 if (error) throw error;
                 navigate('/');
             }
@@ -47,7 +41,9 @@ const Login = () => {
                     <div className="app-logo">
                         <LayoutGrid size={32} />
                     </div>
-                    <h1 className="login-title">{isSignUp ? 'Criar Conta' : '+Agenda'}</h1>
+                    <h1 className="login-title" style={{ color: 'var(--color-text-main)' }}>
+                        {isSignUp ? 'Criar Conta' : 'SmartOrganizer'}
+                    </h1>
                     <p className="login-subtitle">Gestão Pessoal & Profissional</p>
                 </div>
 
@@ -78,20 +74,13 @@ const Login = () => {
                         />
                     </div>
 
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="btn btn-primary btn-block"
-                    >
+                    <button type="submit" disabled={loading} className="btn btn-primary">
                         {loading ? 'Carregando...' : (isSignUp ? 'Cadastrar' : 'Entrar')}
                     </button>
                 </form>
 
                 <div className="login-footer">
-                    <button
-                        onClick={() => setIsSignUp(!isSignUp)}
-                        className="link-btn"
-                    >
+                    <button onClick={() => setIsSignUp(!isSignUp)} className="link-btn">
                         {isSignUp ? 'Já tem uma conta? Entrar' : 'Não tem conta? Cadastrar'}
                     </button>
                 </div>

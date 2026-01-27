@@ -7,7 +7,7 @@ import './Dashboard.css';
 const Dashboard = ({ toggleTheme, currentTheme }) => {
     const navigate = useNavigate();
     const [counts, setCounts] = useState({ tasks: 0, shopping: 0, finance: 0 });
-    const [userName, setUserName] = useState('');
+    const [userData, setUserData] = useState({ name: '', email: '' });
 
     useEffect(() => {
         fetchSummary();
@@ -17,7 +17,10 @@ const Dashboard = ({ toggleTheme, currentTheme }) => {
     const getUser = async () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-            setUserName(user.email.split('@')[0]);
+            setUserData({
+                name: user.user_metadata?.full_name || user.email.split('@')[0],
+                email: user.email
+            });
         }
     };
 
@@ -41,11 +44,13 @@ const Dashboard = ({ toggleTheme, currentTheme }) => {
         <div className="dashboard-container animate-fade-in">
             <header className="top-bar">
                 <div>
-                    <h1 className="capitalize">Bom dia, {userName || 'João'}!</h1>
+                    <h1 className="capitalize" style={{ color: 'var(--color-text-main)' }}>
+                        Bom dia, {userData.name}!
+                    </h1>
                 </div>
                 <div className="flex gap-2">
                     <button className="icon-btn" onClick={toggleTheme} style={{ padding: '0.4rem', border: 'none', background: 'transparent', boxShadow: 'none' }}>
-                        {currentTheme === 'light' ? <Moon size={22} color="#6b7280" /> : <Sun size={22} color="#f3f4f6" />}
+                        {currentTheme === 'light' ? <Moon size={22} color="#6b7280" /> : <Sun size={22} color="#facc15" />}
                     </button>
                     <button className="icon-btn" style={{ padding: '0.4rem', border: 'none', background: 'transparent', boxShadow: 'none' }}>
                         <Bell size={24} color="#6b7280" />
@@ -70,7 +75,7 @@ const Dashboard = ({ toggleTheme, currentTheme }) => {
                 <QuickAction color="purple" label="Novo Plano" icon={Calendar} onClick={() => navigate('/planning')} />
             </div>
 
-            {/* Agenda */}
+            {/* Hoje Section */}
             <section>
                 <div className="section-header">
                     <h2 className="section-title">Hoje</h2>
@@ -79,8 +84,12 @@ const Dashboard = ({ toggleTheme, currentTheme }) => {
                         <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#ccc' }}></div>
                     </div>
                 </div>
-                <AgendaItem icon={Briefcase} text="Reunião às 14:00" sub="Projeto SmartOrganizer" />
-                <AgendaItem icon={Users} orange text="Aniversário da Ana" sub="Comprar presente" />
+
+                {/* Removed placeholders - replaced with instructions to see full planning */}
+                <div className="card" style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--color-text-muted)' }}>
+                    <Calendar size={32} style={{ marginBottom: '0.5rem', opacity: 0.5 }} />
+                    <p className="text-sm">Confira seu planejamento completo na aba de Planos.</p>
+                </div>
             </section>
         </div>
     );
@@ -100,13 +109,6 @@ const QuickAction = ({ color, label, icon: Icon, onClick }) => (
     <div className={`quick-btn ${color}`} onClick={onClick}>
         <div className="quick-icon-circle"><Icon size={20} /></div>
         <span className="quick-label">{label}</span>
-    </div>
-);
-
-const AgendaItem = ({ icon: Icon, text, sub, orange }) => (
-    <div className="agenda-card">
-        <div className={`agenda-icon-box ${orange ? 'orange' : ''}`}><Icon size={22} /></div>
-        <div className="agenda-info"><div className="agenda-text">{text}</div><div className="agenda-subtext">{sub}</div></div>
     </div>
 );
 

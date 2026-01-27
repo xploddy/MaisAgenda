@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Plus, CheckSquare, ShoppingBag, Calendar, LogOut, Briefcase, Users, Moon, Sun, X, AlertCircle, Menu, User } from 'lucide-react';
+import { Bell, Plus, CheckSquare, ShoppingBag, Calendar, LogOut, Briefcase, Users, Moon, Sun, X, AlertCircle, Menu, User, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format, isPast, isToday, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -85,7 +85,7 @@ const Dashboard = ({ toggleTheme, currentTheme }) => {
                 <StatWidget color="red" number={counts.finance} label="Financeiro" icon={Calendar} onClick={() => navigate('/finance')} />
             </div>
 
-            {/* Quick Access - Now with auto-open modal param */}
+            {/* Quick Access */}
             <div className="quick-access-strip">
                 <QuickBtn label="Nova Tarefa" icon={Plus} onClick={() => navigate('/tasks?add=true')} />
                 <QuickBtn label="Nova Compra" icon={ShoppingBag} onClick={() => navigate('/shopping?add=true')} />
@@ -104,7 +104,7 @@ const Dashboard = ({ toggleTheme, currentTheme }) => {
                     </div>
                 ) : (
                     todayEvents.map(event => (
-                        <CompactAgendaItem key={event.id} icon={event.type === 'work' ? Briefcase : Users} text={event.title} time={format(parseISO(event.start_time), 'HH:mm')} />
+                        <CompactAgendaItem key={event.id} icon={event.type === 'work' ? Briefcase : Users} text={event.title} time={format(parseISO(event.start_time), 'HH:mm')} location={event.location} />
                     ))
                 )}
             </section>
@@ -178,12 +178,14 @@ const QuickBtn = ({ label, icon: Icon, onClick }) => (
     </div>
 );
 
-const CompactAgendaItem = ({ icon: Icon, text, time }) => (
+const CompactAgendaItem = ({ icon: Icon, text, time, location }) => (
     <div className="compact-agenda-card">
         <div className="icon-wrapper"><Icon size={18} /></div>
         <div className="content">
             <div className="title">{text}</div>
-            <div className="subtext">{time}</div>
+            <div className="subtext">
+                {time} {location && <span style={{ marginLeft: '10px', opacity: 0.7 }}><MapPin size={10} /> {location}</span>}
+            </div>
         </div>
     </div>
 );

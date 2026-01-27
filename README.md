@@ -1,5 +1,5 @@
 
-# SmartOrganizer PWA
+# +Agenda PWA
 
 A modern, productivity-focused Progressive Web App (PWA) built with React and Vite.
 

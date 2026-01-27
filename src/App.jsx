@@ -38,7 +38,7 @@ function App() {
   }
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen font-bold">SmartOrganizer...</div>
+    return <div className="flex items-center justify-center h-screen font-bold">+Agenda...</div>
   }
 
   return (

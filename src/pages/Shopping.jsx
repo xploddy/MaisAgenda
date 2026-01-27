@@ -54,7 +54,9 @@ const Shopping = () => {
         };
 
         try {
-            payload.due_date = formData.due_date ? new Date(formData.due_date).toISOString() : null;
+            // FIX: Using T12:00:00 to prevent timezone shifting (the day jumping bug)
+            payload.due_date = formData.due_date ? new Date(`${formData.due_date}T12:00:00`).toISOString() : null;
+
             let result = editingItem
                 ? await supabase.from('shopping_items').update(payload).eq('id', editingItem.id)
                 : await supabase.from('shopping_items').insert([payload]);
@@ -70,7 +72,7 @@ const Shopping = () => {
             closeModal();
         } catch (err) {
             console.error(err);
-            alert("Erro ao salvar item. Verifique as migrações SQL.");
+            alert("Erro ao salvar item. Se o erro de coluna persistir, atualize a página (F5) para o cache do bando de dados atualizar.");
         }
     };
 

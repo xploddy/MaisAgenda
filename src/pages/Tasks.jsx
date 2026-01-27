@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Check, ChevronLeft, Calendar, X, Trash2, Edit2, Save, Tag, AlertCircle } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { format, parseISO, isPast, isToday } from 'date-fns';
+import { format, parseISO, isPast, isToday, addHours } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '../supabaseClient';
 import './Tasks.css';
@@ -53,7 +53,9 @@ const Tasks = () => {
         };
 
         try {
-            payload.due_date = formData.due_date ? new Date(formData.due_date).toISOString() : null;
+            // FIX: Using T12:00:00 to prevent timezone shifting (the day jumping bug)
+            payload.due_date = formData.due_date ? new Date(`${formData.due_date}T12:00:00`).toISOString() : null;
+
             let result = editingTask
                 ? await supabase.from('tasks').update(payload).eq('id', editingTask.id)
                 : await supabase.from('tasks').insert([payload]);
@@ -69,7 +71,7 @@ const Tasks = () => {
             closeModal();
         } catch (err) {
             console.error(err);
-            alert("Erro ao salvar tarefa. Verifique as migrações SQL.");
+            alert("Erro ao salvar tarefa. Se o erro de coluna persistir, atualize a página (F5) para o cache do bando de dados atualizar.");
         }
     };
 

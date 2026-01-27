@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Check, ChevronLeft, Calendar, X, Trash2, Edit2 } from 'lucide-react';
+import { Plus, Check, ChevronLeft, Calendar, X, Trash2, Edit2, Clock, Save, Tag } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { format, parseISO, isPast, isToday } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { supabase } from '../supabaseClient';
 import './Tasks.css';
 
@@ -10,7 +12,7 @@ const Tasks = () => {
     const [activeTab, setActiveTab] = useState('Todos');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTask, setEditingTask] = useState(null);
-    const [formData, setFormData] = useState({ title: '', category: 'Trabalho', priority: 'medium' });
+    const [formData, setFormData] = useState({ title: '', category: 'Trabalho', priority: 'medium', due_date: format(new Date(), 'yyyy-MM-dd') });
 
     useEffect(() => {
         fetchTasks();
@@ -20,8 +22,9 @@ const Tasks = () => {
         const { data, error } = await supabase
             .from('tasks')
             .select('*')
+            .order('due_date', { ascending: true })
             .order('created_at', { ascending: false });
-        if (!error && data) setTasks(data);
+        if (data) setTasks(data);
     };
 
     const handleSave = async (e) => {
@@ -29,10 +32,16 @@ const Tasks = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
+        const payload = {
+            ...formData,
+            user_id: user.id,
+            completed: editingTask ? editingTask.completed : false
+        };
+
         if (editingTask) {
-            await supabase.from('tasks').update({ ...formData }).eq('id', editingTask.id);
+            await supabase.from('tasks').update(payload).eq('id', editingTask.id);
         } else {
-            await supabase.from('tasks').insert([{ ...formData, user_id: user.id, completed: false }]);
+            await supabase.from('tasks').insert([payload]);
         }
         fetchTasks();
         closeModal();
@@ -52,10 +61,15 @@ const Tasks = () => {
     const openModal = (task = null) => {
         if (task) {
             setEditingTask(task);
-            setFormData({ title: task.title, category: task.category, priority: task.priority });
+            setFormData({
+                title: task.title,
+                category: task.category,
+                priority: task.priority,
+                due_date: task.due_date ? format(parseISO(task.due_date), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd')
+            });
         } else {
             setEditingTask(null);
-            setFormData({ title: '', category: activeTab === 'Todos' ? 'Trabalho' : activeTab, priority: 'medium' });
+            setFormData({ title: '', category: 'Trabalho', priority: 'medium', due_date: format(new Date(), 'yyyy-MM-dd') });
         }
         setIsModalOpen(true);
     };
@@ -67,17 +81,12 @@ const Tasks = () => {
     return (
         <div className="tasks-page animate-fade-in">
             <header className="tasks-header">
-                <button className="icon-btn" style={{ padding: '0.4rem', border: 'none', background: 'transparent', boxShadow: 'none' }} onClick={() => navigate('/')}>
-                    <ChevronLeft size={24} color="#6b7280" />
-                </button>
-                <h1 style={{ color: 'var(--color-text-main)' }}>Minhas Tarefas</h1>
-                <button className="icon-btn" style={{ padding: '0.4rem', border: 'none', background: 'transparent', boxShadow: 'none' }} onClick={() => openModal()}>
-                    <Plus size={24} color="#1d4ed8" />
-                </button>
+                <button className="icon-btn-ghost" onClick={() => navigate('/')}><ChevronLeft size={24} /></button>
+                <h1>Minhas Tarefas</h1>
+                <button className="icon-btn-ghost" onClick={() => openModal()}><Plus size={24} color="var(--color-primary)" /></button>
             </header>
 
-            {/* Category Filter Tabs - Starting with Todos */}
-            <div className="sub-tabs" style={{ marginBottom: '1.5rem', background: 'rgba(0,0,0,0.05)', padding: '0.3rem' }}>
+            <div className="sub-tabs-container">
                 {['Todos', 'Trabalho', 'Pessoal', 'Projetos'].map(tab => (
                     <button
                         key={tab}
@@ -91,67 +100,88 @@ const Tasks = () => {
 
             <div className="task-list">
                 {filteredTasks.length === 0 ? (
-                    <div className="text-center text-muted py-10">Lista vazia.</div>
+                    <div className="empty-state">Nenhuma tarefa encontrada.</div>
                 ) : (
-                    filteredTasks.map(task => (
-                        <div key={task.id} className={`task-item ${task.completed ? 'completed' : ''}`}>
-                            <div className={`checkbox-custom ${task.completed ? 'checked' : ''}`} onClick={() => toggleTask(task)}>
-                                {task.completed && <Check size={16} color="white" />}
+                    filteredTasks.map(task => {
+                        const dateObj = task.due_date ? parseISO(task.due_date) : null;
+                        const isOverdue = dateObj && isPast(dateObj) && !isToday(dateObj) && !task.completed;
+
+                        return (
+                            <div key={task.id} className={`task-card-modern ${task.completed ? 'completed' : ''}`}>
+                                <div className={`task-check ${task.completed ? 'checked' : ''}`} onClick={() => toggleTask(task)}>
+                                    {task.completed && <Check size={14} color="white" strokeWidth={4} />}
+                                </div>
+                                <div className="task-body" onClick={() => openModal(task)}>
+                                    <div className="task-title-line">{task.title}</div>
+                                    <div className="task-meta">
+                                        {dateObj && (
+                                            <span className={`task-date ${isOverdue ? 'overdue' : ''}`}>
+                                                <Calendar size={12} /> {format(dateObj, "dd 'de' MMM", { locale: ptBR })}
+                                            </span>
+                                        )}
+                                        <span className={`prio-tag ${task.priority}`}>
+                                            {task.priority === 'high' ? 'Alta' : task.priority === 'medium' ? 'Média' : 'Baixa'}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="task-actions">
+                                    <button onClick={() => deleteTask(task.id)} className="action-circle delete"><Trash2 size={14} /></button>
+                                </div>
+                                <div className="task-category-indicator">{task.category}</div>
                             </div>
-                            <div className="task-main" onClick={() => openModal(task)}>
-                                <div className="task-title" style={{ color: 'var(--color-text-main)' }}>{task.title}</div>
-                                <span className={`priority-badge ${task.priority}`}>
-                                    {task.priority === 'high' ? 'Alta Prioridade' : 'Média Prioridade'}
-                                </span>
-                            </div>
-                            <div className="flex gap-2">
-                                <button onClick={() => openModal(task)} className="icon-btn" style={{ background: '#eff6ff', color: '#1d4ed8', padding: '0.4rem', border: 'none' }}>
-                                    <Edit2 size={16} />
-                                </button>
-                                <button onClick={() => deleteTask(task.id)} className="icon-btn" style={{ background: '#fef2f2', color: '#ef4444', padding: '0.4rem', border: 'none' }}>
-                                    <Trash2 size={16} />
-                                </button>
-                            </div>
-                        </div>
-                    ))
+                        );
+                    })
                 )}
             </div>
 
-            <button className="fab" onClick={() => openModal()}>
-                <Plus size={32} />
-            </button>
+            <button className="fab" onClick={() => openModal()}><Plus size={32} /></button>
 
             {isModalOpen && (
-                <div className="modal-overlay">
-                    <div className="modal-content">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-xl font-bold" style={{ color: 'var(--color-text-main)' }}>{editingTask ? 'Editar Tarefa' : 'Nova Tarefa'}</h3>
-                            <button className="icon-btn" style={{ background: 'transparent', border: 'none', boxShadow: 'none' }} onClick={closeModal}><X size={24} color="var(--color-text-main)" /></button>
+                <div className="modal-overlay" onClick={closeModal}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h3 className="modal-title"><Tag size={20} color="var(--color-primary)" /> {editingTask ? 'Editar Tarefa' : 'Nova Tarefa'}</h3>
+                            <button className="modal-close-btn" onClick={closeModal}><X size={20} /></button>
                         </div>
                         <form onSubmit={handleSave}>
-                            <div className="form-group">
-                                <label className="form-label">Descrição</label>
-                                <input autoFocus type="text" className="form-input" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} required />
+                            <label className="form-label">O que precisa ser feito?</label>
+                            <div className="input-container">
+                                <Plus size={20} color="var(--color-text-muted)" />
+                                <input autoFocus type="text" className="input-field" placeholder="Ex: Comprar leite" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} required />
                             </div>
-                            <div className="form-group">
-                                <label className="form-label">Categoria</label>
-                                <select className="form-input" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
-                                    <option>Trabalho</option>
-                                    <option>Pessoal</option>
-                                    <option>Projetos</option>
-                                </select>
+
+                            <label className="form-label">Prazo para conclusão</label>
+                            <div className="input-container">
+                                <Calendar size={20} color="var(--color-text-muted)" />
+                                <input type="date" className="input-field" value={formData.due_date} onChange={e => setFormData({ ...formData, due_date: e.target.value })} />
                             </div>
-                            <div className="form-group">
-                                <label className="form-label">Prioridade</label>
-                                <div className="flex gap-2">
-                                    {['low', 'medium', 'high'].map(p => (
-                                        <button key={p} type="button" className={`flex-1 btn ${formData.priority === p ? 'btn-primary' : ''}`} style={{ fontSize: '0.75rem', padding: '0.5rem', background: formData.priority !== p ? '#f3f4f6' : '', color: formData.priority !== p ? '#6b7280' : '' }} onClick={() => setFormData({ ...formData, priority: p })}>
-                                            {p.toUpperCase()}
-                                        </button>
-                                    ))}
+
+                            <div style={{ display: 'flex', gap: '1rem' }}>
+                                <div style={{ flex: 1 }}>
+                                    <label className="form-label">Categoria</label>
+                                    <div className="input-container">
+                                        <select className="input-field" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
+                                            <option>Trabalho</option>
+                                            <option>Pessoal</option>
+                                            <option>Projetos</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <label className="form-label">Urgência</label>
+                                    <div className="input-container">
+                                        <select className="input-field" value={formData.priority} onChange={e => setFormData({ ...formData, priority: e.target.value })}>
+                                            <option value="high">Alta</option>
+                                            <option value="medium">Média</option>
+                                            <option value="low">Baixa</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
-                            <button type="submit" className="btn btn-primary w-full mt-4">Salvar</button>
+
+                            <button type="submit" className="btn btn-primary btn-submit">
+                                <Save size={20} /> {editingTask ? 'Salvar Alterações' : 'Criar Tarefa'}
+                            </button>
                         </form>
                     </div>
                 </div>

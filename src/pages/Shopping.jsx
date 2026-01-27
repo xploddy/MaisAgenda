@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, X, Check, ChevronLeft, MoreHorizontal, Edit2 } from 'lucide-react';
+import { Plus, Trash2, X, Check, ChevronLeft, Calendar, Save, ShoppingBag, Tag } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { format, parseISO, isPast, isToday } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { supabase } from '../supabaseClient';
 import './Shopping.css';
 import './Tasks.css';
@@ -11,7 +13,7 @@ const Shopping = () => {
     const [activeTab, setActiveTab] = useState('Mercado');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
-    const [formData, setFormData] = useState({ name: '', category: 'Mercado' });
+    const [formData, setFormData] = useState({ name: '', category: 'Mercado', due_date: format(new Date(), 'yyyy-MM-dd') });
 
     useEffect(() => {
         fetchItems();
@@ -21,8 +23,9 @@ const Shopping = () => {
         const { data, error } = await supabase
             .from('shopping_items')
             .select('*')
+            .order('due_date', { ascending: true })
             .order('created_at', { ascending: false });
-        if (!error && data) setItems(data);
+        if (data) setItems(data);
     };
 
     const handleSave = async (e) => {
@@ -30,11 +33,16 @@ const Shopping = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        // Map UI names to DB names if necessary, but here we just use the UI names
+        const payload = {
+            ...formData,
+            user_id: user.id,
+            bought: editingItem ? editingItem.bought : false
+        };
+
         if (editingItem) {
-            await supabase.from('shopping_items').update({ ...formData }).eq('id', editingItem.id);
+            await supabase.from('shopping_items').update(payload).eq('id', editingItem.id);
         } else {
-            await supabase.from('shopping_items').insert([{ ...formData, user_id: user.id, bought: false }]);
+            await supabase.from('shopping_items').insert([payload]);
         }
         fetchItems();
         closeModal();
@@ -54,10 +62,14 @@ const Shopping = () => {
     const openModal = (item = null) => {
         if (item) {
             setEditingItem(item);
-            setFormData({ name: item.name, category: item.category });
+            setFormData({
+                name: item.name,
+                category: item.category,
+                due_date: item.due_date ? format(parseISO(item.due_date), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd')
+            });
         } else {
             setEditingItem(null);
-            setFormData({ name: '', category: activeTab });
+            setFormData({ name: '', category: activeTab, due_date: format(new Date(), 'yyyy-MM-dd') });
         }
         setIsModalOpen(true);
     };
@@ -70,16 +82,12 @@ const Shopping = () => {
     return (
         <div className="shopping-page animate-fade-in">
             <header className="shopping-header">
-                <button className="icon-btn" style={{ background: 'transparent', border: 'none', boxShadow: 'none' }} onClick={() => navigate('/')}>
-                    <ChevronLeft size={24} color="#6b7280" />
-                </button>
-                <h1 style={{ color: 'var(--color-text-main)' }}>Minhas Compras</h1>
-                <button className="icon-btn" style={{ background: 'transparent', border: 'none', boxShadow: 'none' }}>
-                    <MoreHorizontal size={24} color="#6b7280" />
-                </button>
+                <button className="icon-btn-ghost" onClick={() => navigate('/')}><ChevronLeft size={24} /></button>
+                <h1>Minhas Compras</h1>
+                <button className="icon-btn-ghost" onClick={() => openModal()}><Plus size={24} color="var(--color-primary)" /></button>
             </header>
 
-            <div className="sub-tabs" style={{ marginBottom: '1.5rem', background: 'rgba(0,0,0,0.05)', padding: '0.3rem' }}>
+            <div className="sub-tabs-container">
                 {tabs.map(tab => (
                     <button
                         key={tab}
@@ -93,48 +101,69 @@ const Shopping = () => {
 
             <div className="shopping-list">
                 {filteredItems.length === 0 ? (
-                    <div className="text-center text-muted py-10">Lista vazia.</div>
+                    <div className="empty-state">Lista vazia.</div>
                 ) : (
-                    filteredItems.map(item => (
-                        <div key={item.id} className={`shop-item ${item.bought ? 'bought' : ''}`}>
-                            <div className={`checkbox-custom ${item.bought ? 'checked' : ''}`} onClick={() => toggleItem(item)}>
-                                {item.bought && <Check size={16} color="white" />}
+                    filteredItems.map(item => {
+                        const dateObj = item.due_date ? parseISO(item.due_date) : null;
+                        const isOverdue = dateObj && isPast(dateObj) && !isToday(dateObj) && !item.bought;
+
+                        return (
+                            <div key={item.id} className={`task-card-modern ${item.bought ? 'completed' : ''}`}>
+                                <div className={`task-check ${item.bought ? 'checked' : ''}`} onClick={() => toggleItem(item)}>
+                                    {item.bought && <Check size={14} color="white" strokeWidth={4} />}
+                                </div>
+                                <div className="task-body" onClick={() => openModal(item)}>
+                                    <div className="task-title-line">{item.name}</div>
+                                    <div className="task-meta">
+                                        {dateObj && (
+                                            <span className={`task-date ${isOverdue ? 'overdue' : ''}`}>
+                                                <Calendar size={12} /> {format(dateObj, "dd 'de' MMM", { locale: ptBR })}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="task-actions">
+                                    <button onClick={() => deleteItem(item.id)} className="action-circle delete"><Trash2 size={14} /></button>
+                                </div>
                             </div>
-                            <div className="item-name" style={{ color: 'var(--color-text-main)' }} onClick={() => openModal(item)}>{item.name}</div>
-                            <div className="flex gap-2">
-                                <button onClick={() => openModal(item)} className="icon-btn" style={{ background: '#eff6ff', color: '#1d4ed8', border: 'none', padding: '0.4rem' }}><Edit2 size={14} /></button>
-                                <button onClick={() => deleteItem(item.id)} className="icon-btn" style={{ background: '#fef2f2', color: '#ef4444', border: 'none', padding: '0.4rem' }}><Trash2 size={14} /></button>
-                            </div>
-                        </div>
-                    ))
+                        );
+                    })
                 )}
             </div>
 
-            <div className="shop-footer">Histórico de Compras</div>
-
-            <button className="fab" onClick={() => openModal()}>
-                <Plus size={32} />
-            </button>
+            <button className="fab" onClick={() => openModal()}><Plus size={32} /></button>
 
             {isModalOpen && (
-                <div className="modal-overlay">
-                    <div className="modal-content">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-xl font-bold" style={{ color: 'var(--color-text-main)' }}>{editingItem ? 'Editar Item' : 'Novo Item'}</h3>
-                            <button className="icon-btn" style={{ background: 'transparent', border: 'none', boxShadow: 'none' }} onClick={closeModal}><X size={24} color="var(--color-text-main)" /></button>
+                <div className="modal-overlay" onClick={closeModal}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h3 className="modal-title"><ShoppingBag size={20} color="var(--color-primary)" /> {editingItem ? 'Editar Item' : 'Novo Item'}</h3>
+                            <button className="modal-close-btn" onClick={closeModal}><X size={20} /></button>
                         </div>
                         <form onSubmit={handleSave}>
-                            <div className="form-group">
-                                <label className="form-label">Nome do Item</label>
-                                <input autoFocus type="text" className="form-input" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required />
+                            <label className="form-label">O que você precisa comprar?</label>
+                            <div className="input-container">
+                                <Plus size={20} color="var(--color-text-muted)" />
+                                <input autoFocus type="text" className="input-field" placeholder="Ex: Arroz" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required />
                             </div>
-                            <div className="form-group">
-                                <label className="form-label">Categoria</label>
-                                <select className="form-input" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
-                                    {tabs.map(tab => <option key={tab}>{tab}</option>)}
+
+                            <label className="form-label">Dia planejado para compra</label>
+                            <div className="input-container">
+                                <Calendar size={20} color="var(--color-text-muted)" />
+                                <input type="date" className="input-field" value={formData.due_date} onChange={e => setFormData({ ...formData, due_date: e.target.value })} />
+                            </div>
+
+                            <label className="form-label">Categoria</label>
+                            <div className="input-container">
+                                <Tag size={20} color="var(--color-text-muted)" />
+                                <select className="input-field" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
+                                    {tabs.map(tab => <option key={tab} value={tab}>{tab}</option>)}
                                 </select>
                             </div>
-                            <button type="submit" className="btn btn-primary w-full mt-4">Salvar</button>
+
+                            <button type="submit" className="btn btn-primary btn-submit">
+                                <Save size={20} /> {editingItem ? 'Salvar Alterações' : 'Adicionar Item'}
+                            </button>
                         </form>
                     </div>
                 </div>

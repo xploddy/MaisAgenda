@@ -1,12 +1,214 @@
+.planning-page {
+    padding-bottom: 120px;
+}
+
+.planning-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem 0;
+    margin-bottom: 0.5rem;
+}
+
+.planning-header h1 {
+    font-size: 1.25rem;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+}
+
+.icon-btn-ghost {
+    background: transparent;
+    border: none;
+    color: var(--color-text-muted);
+    width: 44px;
+    height: 44px;
+}
+
+/* CALENDAR CARD */
+.calendar-card {
+    background: var(--color-surface);
+    border-radius: 2rem;
+    padding: 1.5rem;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--color-border);
+    margin-bottom: 2rem;
+}
+
+.calendar-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.calendar-nav button {
+    background: var(--color-bg);
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-main);
+}
+
+.month-label {
+    font-weight: 800;
+    text-transform: capitalize;
+    font-size: 0.95rem;
+}
+
+.calendar-week-names {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    text-align: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    margin-bottom: 1rem;
+}
+
+.calendar-grid-row {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.25rem;
+    margin-bottom: 0.25rem;
+}
+
 .calendar-day {
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border-radius: 0.75rem;
+    cursor: pointer;
     position: relative;
+    transition: all 0.2s;
+}
+
+.calendar-day.other-month {
+    opacity: 0.2;
+}
+
+.calendar-day.today {
+    color: var(--color-primary);
+}
+
+.calendar-day.selected {
+    background: var(--color-primary);
+    color: white !important;
+    box-shadow: 0 8px 15px rgba(29, 78, 216, 0.3);
 }
 
 .event-dot {
     width: 4px;
     height: 4px;
-    background-color: #3b82f6;
+    background-color: var(--color-primary);
     border-radius: 50%;
     position: absolute;
-    bottom: 4px;
+    bottom: 6px;
+}
+
+/* AGENDA SECTION */
+.agenda-section .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.25rem;
+}
+
+.agenda-section h2 {
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+.add-event-compact {
+    background: var(--color-primary);
+    color: white;
+    border: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.event-item-modern {
+    background: var(--color-surface);
+    border-radius: 1.25rem;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-sm);
+}
+
+.event-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.event-icon.work {
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.event-icon.personal {
+    background: #ecfdf5;
+    color: #10b981;
+}
+
+.event-icon.health {
+    background: #fff1f2;
+    color: #ef4444;
+}
+
+.event-info {
+    flex: 1;
+}
+
+.event-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    margin-bottom: 0.2rem;
+}
+
+.event-time {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.delete-btn {
+    background: transparent;
+    border: none;
+    color: var(--color-text-muted);
+    opacity: 0.4;
+    padding: 0.5rem;
+}
+
+.delete-btn:hover {
+    opacity: 1;
+    color: var(--color-danger);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 3rem 0;
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
 }

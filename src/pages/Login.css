@@ -17,7 +17,7 @@
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
-@media (prefers-color-scheme: dark) {
+@media (prefers-color-scheme: light) {
     .login-card {
         background: rgba(30, 41, 59, 0.95);
         color: white;
@@ -121,4 +121,55 @@
     font-size: 0.875rem;
     margin-bottom: 1rem;
     text-align: center;
+}
+
+.btn {
+    width: 100%;
+    padding: 0.85rem 1rem;
+    border-radius: 0.9rem;
+    border: none;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    letter-spacing: 0.3px;
+}
+
+/* Botão principal */
+.btn-primary {
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
+    color: #ffffff;
+    box-shadow: 0 10px 25px rgba(37, 99, 235, 0.35);
+}
+
+/* Hover elegante */
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 30px rgba(37, 99, 235, 0.45);
+    filter: brightness(1.05);
+}
+
+/* Clique */
+.btn-primary:active {
+    transform: translateY(0);
+    box-shadow: 0 6px 15px rgba(37, 99, 235, 0.35);
+}
+
+/* Estado loading / disabled */
+.btn-primary:disabled {
+    background: linear-gradient(135deg, #94a3b8, #64748b);
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+}
+
+/* Acessibilidade */
+.btn-primary:focus-visible {
+    outline: none;
+    box-shadow:
+        0 0 0 3px rgba(37, 99, 235, 0.4),
+        0 10px 25px rgba(37, 99, 235, 0.35);
 }

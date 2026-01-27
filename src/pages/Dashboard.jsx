@@ -1,27 +1,64 @@
-import React from 'react';
-import { Bell, Plus, CheckSquare, ShoppingBag, PieChart, Calendar } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Bell, Plus, CheckSquare, ShoppingBag, PieChart, Calendar, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../supabaseClient';
 import './Dashboard.css';
 
 const Dashboard = () => {
     const navigate = useNavigate();
-    const userName = "João";
+    const [counts, setCounts] = useState({ tasks: 0, shopping: 0, finance: 0 });
+    const [userName, setUserName] = useState('');
+
+    useEffect(() => {
+        fetchSummary();
+        getUser();
+    }, []);
+
+    const getUser = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            setUserName(user.email.split('@')[0]); // Simple username from email
+        }
+    };
+
+    const fetchSummary = async () => {
+        try {
+            const { count: tasksCount } = await supabase.from('tasks').select('*', { count: 'exact', head: true }).eq('completed', false);
+            const { count: shopCount } = await supabase.from('shopping_items').select('*', { count: 'exact', head: true }).eq('bought', false);
+
+            // For finance, maybe count overdue? or just total count. Let's do bills count for now (assuming all expenses are bills to pay if future? generic count for now)
+            // Actually the mock said "2 Contas Vencendo". I don't have a due date in transactions, only date. 
+            // Let's just count transactions this month.
+            const startOfMonth = new Date(); startOfMonth.setDate(1);
+            const { count: finCount } = await supabase.from('transactions').select('*', { count: 'exact', head: true }).gte('date', startOfMonth.toISOString());
+
+            setCounts({ tasks: tasksCount || 0, shopping: shopCount || 0, finance: finCount || 0 });
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const handleLogout = async () => {
+        await supabase.auth.signOut();
+        // App.jsx will redirect
+    };
 
     return (
-        <div>
+        <div className="pb-20">
             <header className="dashboard-header">
                 <div>
-                    <h1>Bom dia, {userName}!</h1>
+                    <h1 className="capitalize">Bom dia, {userName || 'Usuário'}!</h1>
                     <p className="text-muted text-sm">Aqui está o seu resumo de hoje.</p>
                 </div>
-                <button className="icon-btn" style={{ position: 'relative' }}>
-                    <Bell size={24} />
-                    <span style={{
-                        position: 'absolute', top: 4, right: 4,
-                        width: 8, height: 8, backgroundColor: '#ef4444',
-                        borderRadius: '50%', border: '2px solid var(--color-surface)'
-                    }}></span>
-                </button>
+                <div className="flex gap-2">
+                    <button className="icon-btn relative">
+                        <Bell size={24} />
+                        <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+                    </button>
+                    <button onClick={handleLogout} className="icon-btn text-red-500 bg-red-50 rounded-full">
+                        <LogOut size={20} />
+                    </button>
+                </div>
             </header>
 
             {/* Summary Cards */}
@@ -29,22 +66,22 @@ const Dashboard = () => {
                 <SummaryCard
                     icon={CheckSquare}
                     title="Tarefas"
-                    value="3 Pendentes"
+                    value={`${counts.tasks} Pendentes`}
                     className="card-blue"
                     onClick={() => navigate('/tasks')}
                 />
                 <SummaryCard
                     icon={ShoppingBag}
                     title="Compras"
-                    value="5 Itens"
+                    value={`${counts.shopping} Itens`}
                     className="card-green"
                     onClick={() => navigate('/shopping')}
                 />
                 <SummaryCard
                     icon={PieChart}
                     title="Finanças"
-                    value="2 Contas"
-                    sub="Vencendo"
+                    value={`${counts.finance} Movim.`}
+                    sub="Este Mês"
                     className="card-rose"
                     onClick={() => navigate('/finance')}
                 />
@@ -61,12 +98,13 @@ const Dashboard = () => {
                 </div>
             </section>
 
-            {/* Today's Agenda */}
+            {/* Today's Agenda - Placeholder for now as fetching complex date query is heavy for dashboard quick view */}
             <section>
                 <h2 className="section-title">Hoje</h2>
-                <div className="flex flex-col">
-                    <AgendaItem time="14:00" title="Reunião de Projeto" />
-                    <AgendaItem time="19:00" title="Aniversário da Ana" />
+                <div className="flex flex-col gap-2">
+                    <div className="card text-sm text-muted p-4 text-center">
+                        Verifique seu planejamento completo.
+                    </div>
                 </div>
             </section>
         </div>
@@ -92,13 +130,6 @@ const ShortcutButton = ({ icon: Icon, label, onClick }) => (
             <Icon size={24} />
         </div>
         <span className="text-sm font-bold">{label}</span>
-    </div>
-);
-
-const AgendaItem = ({ time, title }) => (
-    <div className="agenda-item">
-        <div className="agenda-time">{time}</div>
-        <div style={{ fontWeight: 500 }}>{title}</div>
     </div>
 );
 

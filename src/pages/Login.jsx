@@ -41,9 +41,16 @@ const Login = () => {
                     <div className="app-logo">
                         <LayoutGrid size={32} />
                     </div>
-                    <h1 className="login-title" style={{ color: 'var(--color-text-main)' }}>
-                        {isSignUp ? 'Criar Conta' : '+Agenda'}
+                    <h1 className="login-title">
+                        {isSignUp ? (
+                            'Criar Conta'
+                        ) : (
+                            <>
+                                <span className="login-plus">+</span>Agenda
+                            </>
+                        )}
                     </h1>
+
                     <p className="login-subtitle">Gestão Pessoal & Profissional</p>
                 </div>
 

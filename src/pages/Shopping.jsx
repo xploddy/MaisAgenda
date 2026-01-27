@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, MoreHorizontal, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Check } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import './Shopping.css';
 import './Tasks.css';
@@ -7,8 +7,9 @@ import './Tasks.css';
 const Shopping = () => {
     const [activeTab, setActiveTab] = useState('Mercearia');
     const [items, setItems] = useState([]);
-    const [newItemName, setNewItemName] = useState('');
-    const [isAdding, setIsAdding] = useState(false);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingItem, setEditingItem] = useState(null);
+    const [formData, setFormData] = useState({ name: '', category: 'Mercearia' });
 
     useEffect(() => {
         fetchItems();
@@ -20,58 +21,56 @@ const Shopping = () => {
             .select('*')
             .order('created_at', { ascending: false });
 
-        if (error) console.error('Error fetching shopping items:', error);
-        else setItems(data || []);
+        if (!error && data) setItems(data);
     };
 
-    const addItem = async (e) => {
+    const handleSave = async (e) => {
         e.preventDefault();
-        if (!newItemName.trim()) return;
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
 
-        // Optimistic update
-        const tempId = Date.now();
-        const newItem = { id: tempId, name: newItemName, category: activeTab, bought: false };
-        setItems([newItem, ...items]);
-        setNewItemName('');
-        setIsAdding(false);
-
-        const { data, error } = await supabase
-            .from('shopping_items')
-            .insert([{ name: newItem.name, category: newItem.category, user_id: (await supabase.auth.getUser()).data.user.id }])
-            .select();
-
-        if (error) {
-            console.error('Error adding item:', error);
-            // Revert if error (simplified: just refetch)
-            fetchItems();
+        if (editingItem) {
+            const { error } = await supabase
+                .from('shopping_items')
+                .update({ ...formData })
+                .eq('id', editingItem.id);
+            if (!error) fetchItems();
         } else {
-            // Replace temp item with real one
-            setItems(prev => prev.map(i => i.id === tempId ? data[0] : i));
+            const { error } = await supabase
+                .from('shopping_items')
+                .insert([{ ...formData, user_id: user.id, bought: false }]);
+            if (!error) fetchItems();
         }
+        closeModal();
     };
 
-    const toggleItem = async (id, currentStatus) => {
-        // Optimistic
-        setItems(items.map(i => i.id === id ? { ...i, bought: !currentStatus } : i));
-
+    const toggleItem = async (item) => {
         const { error } = await supabase
             .from('shopping_items')
-            .update({ bought: !currentStatus })
-            .eq('id', id);
-
-        if (error) console.error('Error updating item:', error);
+            .update({ bought: !item.bought })
+            .eq('id', item.id);
+        if (!error) fetchItems();
     };
 
     const deleteItem = async (id) => {
-        // Optimistic
-        setItems(items.filter(i => i.id !== id));
+        const { error } = await supabase.from('shopping_items').delete().eq('id', id);
+        if (!error) setItems(items.filter(i => i.id !== id));
+    };
 
-        const { error } = await supabase
-            .from('shopping_items')
-            .delete()
-            .eq('id', id);
+    const openModal = (item = null) => {
+        if (item) {
+            setEditingItem(item);
+            setFormData({ name: item.name, category: item.category });
+        } else {
+            setEditingItem(null);
+            setFormData({ name: '', category: activeTab });
+        }
+        setIsModalOpen(true);
+    };
 
-        if (error) console.error('Error deleting item:', error);
+    const closeModal = () => {
+        setIsModalOpen(false);
+        setEditingItem(null);
     };
 
     const filteredItems = items.filter(i => i.category === activeTab);
@@ -81,8 +80,8 @@ const Shopping = () => {
         <div className="pb-20">
             <header className="shopping-header">
                 <h1>Minhas Compras</h1>
-                <button className="icon-btn">
-                    <MoreHorizontal size={24} />
+                <button className="icon-btn text-primary" onClick={() => openModal()}>
+                    <Plus size={24} />
                 </button>
             </header>
 
@@ -105,46 +104,61 @@ const Shopping = () => {
                     ) : (
                         filteredItems.map(item => (
                             <div key={item.id} className={`shopping-item ${item.bought ? 'bought' : ''}`}>
-                                <div className="flex items-center gap-3 flex-1">
-                                    <div
-                                        className={`checkbox ${item.bought ? 'checked' : ''}`}
-                                        onClick={() => toggleItem(item.id, item.bought)}
-                                    ></div>
+                                <div className="flex items-center gap-3 flex-1" onClick={() => toggleItem(item)}>
+                                    <div className={`checkbox ${item.bought ? 'checked' : ''}`}>
+                                        {item.bought && <Check size={16} color="white" />}
+                                    </div>
                                     <span className="text-sm font-medium">{item.name}</span>
                                 </div>
-                                <button onClick={() => deleteItem(item.id)} className="p-2 text-muted hover:text-red-500">
-                                    <Trash2 size={16} />
-                                </button>
+                                <div className="flex gap-2">
+                                    <button onClick={() => openModal(item)} className="p-1 text-muted hover:text-blue-500">
+                                        <Edit2 size={16} />
+                                    </button>
+                                    <button onClick={() => deleteItem(item.id)} className="p-1 text-muted hover:text-red-500">
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
                             </div>
                         ))
                     )}
                 </div>
             </div>
 
-            {/* Add Item Form/Button */}
-            {isAdding ? (
-                <form onSubmit={addItem} className="fixed bottom-[90px] left-4 right-4 bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-xl border border-blue-100 dark:border-slate-700 animate-fade-in z-50">
-                    <div className="flex gap-2">
-                        <input
-                            autoFocus
-                            type="text"
-                            placeholder={`Adicionar em ${activeTab}...`}
-                            className="flex-1 p-3 rounded-xl border border-gray-200 dark:border-slate-600 dark:bg-slate-700 focus:outline-none"
-                            value={newItemName}
-                            onChange={e => setNewItemName(e.target.value)}
-                        />
-                        <button type="submit" className="bg-blue-600 text-white p-3 rounded-xl font-bold">OK</button>
-                        <button type="button" onClick={() => setIsAdding(false)} className="bg-gray-200 text-gray-600 p-3 rounded-xl">X</button>
+            {isModalOpen && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-slate-800 w-full max-w-sm rounded-2xl p-6 animate-fade-in">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="font-bold text-lg">{editingItem ? 'Editar Item' : 'Novo Item'}</h3>
+                            <button onClick={closeModal}><X size={20} /></button>
+                        </div>
+                        <form onSubmit={handleSave} className="flex flex-col gap-4">
+                            <div className="form-group">
+                                <label className="form-label">Nome do Item</label>
+                                <input
+                                    autoFocus
+                                    type="text"
+                                    required
+                                    className="form-input"
+                                    value={formData.name}
+                                    onChange={e => setFormData({ ...formData, name: e.target.value })}
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Categoria</label>
+                                <select
+                                    className="form-input"
+                                    value={formData.category}
+                                    onChange={e => setFormData({ ...formData, category: e.target.value })}
+                                >
+                                    {tabs.map(tab => <option key={tab} value={tab}>{tab}</option>)}
+                                </select>
+                            </div>
+                            <button type="submit" className="btn btn-primary w-full py-3 mt-2">
+                                {editingItem ? 'Salvar Alterações' : 'Adicionar Item'}
+                            </button>
+                        </form>
                     </div>
-                </form>
-            ) : (
-                <button
-                    onClick={() => setIsAdding(true)}
-                    className="btn btn-primary shadow-lg hover:scale-105 transition-transform"
-                    style={{ position: 'fixed', bottom: '100px', right: '20px', borderRadius: '50%', width: '56px', height: '56px', padding: 0, zIndex: 40 }}
-                >
-                    <Plus size={24} />
-                </button>
+                </div>
             )}
         </div>
     );

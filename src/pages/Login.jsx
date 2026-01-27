@@ -47,7 +47,7 @@ const Login = () => {
                     <div className="app-logo">
                         <LayoutGrid size={32} />
                     </div>
-                    <h1 className="login-title">{isSignUp ? 'Criar Conta' : 'SmartOrganizer'}</h1>
+                    <h1 className="login-title">{isSignUp ? 'Criar Conta' : '+Agenda'}</h1>
                     <p className="login-subtitle">Gestão Pessoal & Profissional</p>
                 </div>
 

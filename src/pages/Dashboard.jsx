@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Bell, Plus, CheckSquare, ShoppingBag, PieChart, Calendar, LogOut, Briefcase, Users } from 'lucide-react';
+import { Bell, Plus, CheckSquare, ShoppingBag, Calendar, LogOut, Briefcase, Users, Moon, Sun } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import './Dashboard.css';
 
-const Dashboard = () => {
+const Dashboard = ({ toggleTheme, currentTheme }) => {
     const navigate = useNavigate();
     const [counts, setCounts] = useState({ tasks: 0, shopping: 0, finance: 0 });
     const [userName, setUserName] = useState('');
@@ -44,10 +44,13 @@ const Dashboard = () => {
                     <h1 className="capitalize">Bom dia, {userName || 'João'}!</h1>
                 </div>
                 <div className="flex gap-2">
-                    <button className="icon-btn" style={{ padding: '0.5rem', border: 'none', background: 'transparent', boxShadow: 'none' }}>
+                    <button className="icon-btn" onClick={toggleTheme} style={{ padding: '0.4rem', border: 'none', background: 'transparent', boxShadow: 'none' }}>
+                        {currentTheme === 'light' ? <Moon size={22} color="#6b7280" /> : <Sun size={22} color="#f3f4f6" />}
+                    </button>
+                    <button className="icon-btn" style={{ padding: '0.4rem', border: 'none', background: 'transparent', boxShadow: 'none' }}>
                         <Bell size={24} color="#6b7280" />
                     </button>
-                    <button onClick={handleLogout} className="icon-btn" style={{ color: '#ef4444', border: 'none' }}>
+                    <button onClick={handleLogout} className="icon-btn" style={{ color: '#ef4444', border: 'none', background: 'transparent', boxShadow: 'none' }}>
                         <LogOut size={20} />
                     </button>
                 </div>
@@ -55,27 +58,9 @@ const Dashboard = () => {
 
             {/* Summary Strip */}
             <div className="summary-strip">
-                <StatCard
-                    color="blue"
-                    number={counts.tasks}
-                    label="Tarefas"
-                    icon={CheckSquare}
-                    onClick={() => navigate('/tasks')}
-                />
-                <StatCard
-                    color="green"
-                    number={counts.shopping}
-                    label="Itens"
-                    icon={ShoppingBag}
-                    onClick={() => navigate('/shopping')}
-                />
-                <StatCard
-                    color="red"
-                    number={counts.finance}
-                    label="Trans."
-                    icon={PieChart}
-                    onClick={() => navigate('/finance')}
-                />
+                <StatCard color="blue" number={counts.tasks} label="Tarefas" icon={CheckSquare} onClick={() => navigate('/tasks')} />
+                <StatCard color="green" number={counts.shopping} label="Itens" icon={ShoppingBag} onClick={() => navigate('/shopping')} />
+                <StatCard color="red" number={counts.finance} label="Trans." icon={Calendar} onClick={() => navigate('/finance')} />
             </div>
 
             {/* Quick Actions */}
@@ -85,7 +70,7 @@ const Dashboard = () => {
                 <QuickAction color="purple" label="Novo Plano" icon={Calendar} onClick={() => navigate('/planning')} />
             </div>
 
-            {/* Hoje Section */}
+            {/* Agenda */}
             <section>
                 <div className="section-header">
                     <h2 className="section-title">Hoje</h2>
@@ -94,30 +79,8 @@ const Dashboard = () => {
                         <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#ccc' }}></div>
                     </div>
                 </div>
-
-                <AgendaItem
-                    icon={Briefcase}
-                    text="Reunião às 14:00"
-                    sub="Projeto SmartOrganizer"
-                />
-                <AgendaItem
-                    icon={Users}
-                    orange
-                    text="Aniversário da Ana"
-                    sub="Comprar presente"
-                />
-            </section>
-
-            {/* Second Section duplicated for visual parity with image */}
-            <section style={{ marginTop: '1.5rem' }}>
-                <div className="section-header">
-                    <h2 className="section-title">Amanhã</h2>
-                </div>
-                <AgendaItem
-                    icon={Calendar}
-                    text="Visita ao Dentista"
-                    sub="Rua das Flores, 123"
-                />
+                <AgendaItem icon={Briefcase} text="Reunião às 14:00" sub="Projeto SmartOrganizer" />
+                <AgendaItem icon={Users} orange text="Aniversário da Ana" sub="Comprar presente" />
             </section>
         </div>
     );
@@ -127,9 +90,7 @@ const StatCard = ({ color, number, label, icon: Icon, onClick }) => (
     <div className={`stat-card ${color}`} onClick={onClick}>
         <div className="stat-header">
             <div className="stat-number">{number}</div>
-            <div className="stat-icon-box">
-                <Icon size={16} color="white" />
-            </div>
+            <div className="stat-icon-box"><Icon size={16} color="white" /></div>
         </div>
         <div className="stat-label">{label}</div>
     </div>
@@ -137,22 +98,15 @@ const StatCard = ({ color, number, label, icon: Icon, onClick }) => (
 
 const QuickAction = ({ color, label, icon: Icon, onClick }) => (
     <div className={`quick-btn ${color}`} onClick={onClick}>
-        <div className="quick-icon-circle">
-            <Icon size={20} />
-        </div>
+        <div className="quick-icon-circle"><Icon size={20} /></div>
         <span className="quick-label">{label}</span>
     </div>
 );
 
 const AgendaItem = ({ icon: Icon, text, sub, orange }) => (
     <div className="agenda-card">
-        <div className={`agenda-icon-box ${orange ? 'orange' : ''}`}>
-            <Icon size={22} />
-        </div>
-        <div className="agenda-info">
-            <div className="agenda-text">{text}</div>
-            <div className="agenda-subtext">{sub}</div>
-        </div>
+        <div className={`agenda-icon-box ${orange ? 'orange' : ''}`}><Icon size={22} /></div>
+        <div className="agenda-info"><div className="agenda-text">{text}</div><div className="agenda-subtext">{sub}</div></div>
     </div>
 );
 

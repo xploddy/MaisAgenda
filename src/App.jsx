@@ -12,26 +12,36 @@ import Login from './pages/Login'
 function App() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [theme, setTheme] = useState('light')
 
   useEffect(() => {
-    // Check active session
+    // Session check
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       setLoading(false)
     })
 
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
     })
+
+    // Theme initialization
+    const savedTheme = localStorage.getItem('theme') || 'light'
+    setTheme(savedTheme)
+    document.body.className = `${savedTheme}-theme`
 
     return () => subscription.unsubscribe()
   }, [])
 
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light'
+    setTheme(newTheme)
+    localStorage.setItem('theme', newTheme)
+    document.body.className = `${newTheme}-theme`
+  }
+
   if (loading) {
-    return <div className="flex items-center justify-center h-screen">Carregando...</div>
+    return <div className="flex items-center justify-center h-screen font-bold">SmartOrganizer...</div>
   }
 
   return (
@@ -41,7 +51,7 @@ function App() {
           <Route path="*" element={<Login />} />
         </Routes>
       ) : (
-        <Layout>
+        <Layout toggleTheme={toggleTheme} currentTheme={theme}>
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/tasks" element={<Tasks />} />

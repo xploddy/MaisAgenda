@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit2, X, Check, ChevronLeft, MoreHorizontal } from 'lucide-react';
+import { Plus, Trash2, X, Check, ChevronLeft, MoreHorizontal } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import './Shopping.css';
@@ -40,8 +40,14 @@ const Shopping = () => {
     };
 
     const toggleItem = async (item) => {
-        const { error } = await supabase.from('shopping_items').update({ bought: !item.bought }).eq('id', item.id);
-        setItems(prev => prev.map(i => i.id === item.id ? { ...i, bought: !item.bought } : i));
+        await supabase.from('shopping_items').update({ bought: !item.bought }).eq('id', item.id);
+        fetchItems();
+    };
+
+    const deleteItem = async (id) => {
+        if (!window.confirm('Excluir item?')) return;
+        await supabase.from('shopping_items').delete().eq('id', id);
+        fetchItems();
     };
 
     const openModal = (item = null) => {
@@ -66,17 +72,17 @@ const Shopping = () => {
                 <button className="icon-btn" style={{ background: 'transparent', border: 'none', boxShadow: 'none' }} onClick={() => navigate('/')}>
                     <ChevronLeft size={24} color="#6b7280" />
                 </button>
-                <h1 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Minhas Listas...</h1>
+                <h1>Minhas Compras</h1>
                 <button className="icon-btn" style={{ background: 'transparent', border: 'none', boxShadow: 'none' }}>
                     <MoreHorizontal size={24} color="#6b7280" />
                 </button>
             </header>
 
-            <div className="category-tabs" style={{ marginBottom: '1.5rem', display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
+            <div className="sub-tabs" style={{ marginBottom: '1.5rem', background: '#ccc', padding: '0.3rem' }}>
                 {tabs.map(tab => (
                     <button
                         key={tab}
-                        className={`tab-btn ${activeTab === tab ? 'active' : ''}`}
+                        className={`sub-tab-btn ${activeTab === tab ? 'active' : ''}`}
                         onClick={() => setActiveTab(tab)}
                     >
                         {tab}
@@ -93,9 +99,10 @@ const Shopping = () => {
                             <div className={`checkbox-custom ${item.bought ? 'checked' : ''}`} onClick={() => toggleItem(item)}>
                                 {item.bought && <Check size={16} color="white" />}
                             </div>
-                            <div className="item-name" onClick={() => openModal(item)}>{item.name}</div>
-                            <div className="check-badge">
-                                <Check size={16} />
+                            <div className="item-name" style={{ color: 'var(--color-text-main)' }} onClick={() => openModal(item)}>{item.name}</div>
+                            <div className="flex gap-2">
+                                <div className="check-badge"><Check size={14} /></div>
+                                <button onClick={() => deleteItem(item.id)} className="icon-btn" style={{ background: '#fef2f2', color: '#ef4444', border: 'none', padding: '0.3rem' }}><Trash2 size={14} /></button>
                             </div>
                         </div>
                     ))
@@ -112,20 +119,13 @@ const Shopping = () => {
                 <div className="modal-overlay">
                     <div className="modal-content">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-xl font-bold">{editingItem ? 'Editar Item' : 'Novo Item'}</h3>
-                            <button className="icon-btn" style={{ background: 'transparent', border: 'none', boxShadow: 'none' }} onClick={closeModal}><X size={24} /></button>
+                            <h3 className="text-xl font-bold" style={{ color: 'var(--color-text-main)' }}>{editingItem ? 'Editar Item' : 'Novo Item'}</h3>
+                            <button className="icon-btn" style={{ background: 'transparent', border: 'none', boxShadow: 'none' }} onClick={closeModal}><X size={24} color="var(--color-text-main)" /></button>
                         </div>
                         <form onSubmit={handleSave}>
                             <div className="form-group">
                                 <label className="form-label">Nome do Item</label>
-                                <input
-                                    autoFocus
-                                    type="text"
-                                    className="form-input"
-                                    value={formData.name}
-                                    onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                    required
-                                />
+                                <input autoFocus type="text" className="form-input" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required />
                             </div>
                             <div className="form-group">
                                 <label className="form-label">Categoria</label>

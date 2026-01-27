@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Check, ChevronLeft, Calendar, Trash2, Edit3, X } from 'lucide-react';
+import { Plus, Check, ChevronLeft, Calendar, X, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import './Tasks.css';
@@ -7,7 +7,7 @@ import './Tasks.css';
 const Tasks = () => {
     const navigate = useNavigate();
     const [tasks, setTasks] = useState([]);
-    const [activeTab, setActiveTab] = useState('Todos');
+    const [activeTab, setActiveTab] = useState('Trabalho');
     const [timeFilter, setTimeFilter] = useState('Hoje');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTask, setEditingTask] = useState(null);
@@ -41,7 +41,13 @@ const Tasks = () => {
 
     const toggleTask = async (task) => {
         await supabase.from('tasks').update({ completed: !task.completed }).eq('id', task.id);
-        setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: !t.completed } : t));
+        fetchTasks();
+    };
+
+    const deleteTask = async (id) => {
+        if (!window.confirm('Excluir esta tarefa?')) return;
+        await supabase.from('tasks').delete().eq('id', id);
+        fetchTasks();
     };
 
     const openModal = (task = null) => {
@@ -50,7 +56,7 @@ const Tasks = () => {
             setFormData({ title: task.title, category: task.category, priority: task.priority });
         } else {
             setEditingTask(null);
-            setFormData({ title: '', category: 'Trabalho', priority: 'medium' });
+            setFormData({ title: '', category: activeTab, priority: 'medium' });
         }
         setIsModalOpen(true);
     };
@@ -71,12 +77,12 @@ const Tasks = () => {
                 </button>
             </header>
 
-            {/* Category Filter Tabs */}
-            <div className="category-tabs" style={{ marginBottom: '1.5rem', display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
+            {/* Category Filter Tabs - Image Style */}
+            <div className="sub-tabs" style={{ marginBottom: '1.5rem', background: '#ccc', padding: '0.3rem' }}>
                 {['Trabalho', 'Pessoal', 'Projetos', 'Todos'].map(tab => (
                     <button
                         key={tab}
-                        className={`tab-btn ${activeTab === tab ? 'active' : ''}`}
+                        className={`sub-tab-btn ${activeTab === tab ? 'active' : ''}`}
                         onClick={() => setActiveTab(tab)}
                     >
                         {tab}
@@ -84,15 +90,15 @@ const Tasks = () => {
                 ))}
             </div>
 
-            {/* Time Filter Tabs (Hoje, Semana, Todas) */}
-            <div className="sub-tabs">
+            {/* Sub Filter */}
+            <div className="category-tabs" style={{ background: 'transparent', border: 'none', boxShadow: 'none', padding: 0 }}>
                 {['Hoje', 'Semana', 'Todas'].map(filter => (
                     <button
                         key={filter}
-                        className={`sub-tab-btn ${timeFilter === filter ? 'active' : ''}`}
+                        className={`tab-btn ${timeFilter === filter ? 'active' : ''}`}
                         onClick={() => setTimeFilter(filter)}
                     >
-                        <div className="flex items-center justify-center gap-1">
+                        <div className="flex items-center gap-1">
                             {filter === 'Hoje' && <Calendar size={14} />}
                             {filter}
                         </div>
@@ -100,47 +106,49 @@ const Tasks = () => {
                 ))}
             </div>
 
-            <div className="task-list">
+            <div className="task-list" style={{ marginTop: '1.5rem' }}>
                 {filteredTasks.length === 0 ? (
-                    <div className="text-center text-muted py-10">Sem tarefas nesta categoria.</div>
+                    <div className="text-center text-muted py-10">Lista vazia.</div>
                 ) : (
                     filteredTasks.map(task => (
                         <div key={task.id} className={`task-item ${task.completed ? 'completed' : ''}`}>
-                            <div className={`task-checkbox ${task.completed ? 'checked' : ''}`} onClick={() => toggleTask(task)}>
+                            <div className={`checkbox-custom ${task.completed ? 'checked' : ''}`} onClick={() => toggleTask(task)}>
                                 {task.completed && <Check size={16} color="white" />}
                             </div>
                             <div className="task-main" onClick={() => openModal(task)}>
-                                <div className="task-title">{task.title}</div>
-                                {task.priority === 'high' && <span className="priority-badge high">Alta Prioridade</span>}
-                                {task.priority === 'medium' && <span className="priority-badge medium">Média Prioridade</span>}
+                                <div className="task-title" style={{ color: 'var(--color-text-main)' }}>{task.title}</div>
+                                <span className={`priority-badge ${task.priority}`}>
+                                    {task.priority === 'high' ? 'Alta Prioridade' : 'Média Prioridade'}
+                                </span>
                             </div>
-                            <div className="task-status-icon">
-                                <Check size={16} />
+                            <div className="flex gap-2">
+                                <button className="icon-btn" style={{ background: '#ecfdf5', color: '#10b981', padding: '0.3rem' }}>
+                                    <Check size={14} />
+                                </button>
+                                <button onClick={() => deleteTask(task.id)} className="icon-btn" style={{ background: '#fef2f2', color: '#ef4444', padding: '0.3rem' }}>
+                                    <Trash2 size={14} />
+                                </button>
                             </div>
                         </div>
                     ))
                 )}
             </div>
 
-            {/* Modal remains standardized from index.css logic, updating its inner labels/inputs */}
+            <button className="fab" onClick={() => openModal()}>
+                <Plus size={32} />
+            </button>
+
             {isModalOpen && (
                 <div className="modal-overlay">
                     <div className="modal-content">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-xl font-bold">{editingTask ? 'Editar Tarefa' : 'Nova Tarefa'}</h3>
-                            <button className="icon-btn" style={{ background: 'transparent', border: 'none', boxShadow: 'none' }} onClick={closeModal}><X size={24} /></button>
+                            <h3 className="text-xl font-bold" style={{ color: 'var(--color-text-main)' }}>{editingTask ? 'Editar Tarefa' : 'Nova Tarefa'}</h3>
+                            <button className="icon-btn" style={{ background: 'transparent', border: 'none', boxShadow: 'none' }} onClick={closeModal}><X size={24} color="var(--color-text-main)" /></button>
                         </div>
                         <form onSubmit={handleSave}>
                             <div className="form-group">
-                                <label className="form-label">O que precisa ser feito?</label>
-                                <input
-                                    autoFocus
-                                    type="text"
-                                    className="form-input"
-                                    value={formData.title}
-                                    onChange={e => setFormData({ ...formData, title: e.target.value })}
-                                    required
-                                />
+                                <label className="form-label">Descrição</label>
+                                <input autoFocus type="text" className="form-input" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} required />
                             </div>
                             <div className="form-group">
                                 <label className="form-label">Categoria</label>
@@ -154,13 +162,7 @@ const Tasks = () => {
                                 <label className="form-label">Prioridade</label>
                                 <div className="flex gap-2">
                                     {['low', 'medium', 'high'].map(p => (
-                                        <button
-                                            key={p}
-                                            type="button"
-                                            className={`flex-1 btn ${formData.priority === p ? 'btn-primary' : ''}`}
-                                            style={{ fontSize: '0.75rem', padding: '0.5rem' }}
-                                            onClick={() => setFormData({ ...formData, priority: p })}
-                                        >
+                                        <button key={p} type="button" className={`flex-1 btn ${formData.priority === p ? 'btn-primary' : ''}`} style={{ fontSize: '0.75rem', padding: '0.5rem', background: formData.priority !== p ? '#f3f4f6' : '', color: formData.priority !== p ? '#6b7280' : '' }} onClick={() => setFormData({ ...formData, priority: p })}>
                                             {p.toUpperCase()}
                                         </button>
                                     ))}

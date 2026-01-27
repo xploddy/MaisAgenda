@@ -1,4 +1,277 @@
-/* Existing styles... */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --color-primary: #1d4ed8;
+  --color-success: #10b981;
+  --color-danger: #ef4444;
+  --color-warning: #f59e0b;
+  --color-bg: #eff3f6;
+  --color-surface: #ffffff;
+  --color-text-main: #111827;
+  --color-text-muted: #6b7280;
+  --color-border: #e2e8f0;
+  --color-input-bg: #f9fafb;
+  --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+  --safe-area-bottom: env(safe-area-inset-bottom);
+}
+
+[data-theme='dark'],
+.dark-theme {
+  --color-bg: #0f172a;
+  --color-surface: #1e293b;
+  --color-text-main: #f3f4f6;
+  --color-text-muted: #9ca3af;
+  --color-border: #334155;
+  --color-input-bg: #0f172a;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-text-main);
+  transition: background-color 0.3s, color 0.3s;
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 0 1.25rem 100px;
+  min-height: 100vh;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* STANDARD MODERN MODAL SYSTEM */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(10px);
+  z-index: 3000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+@media (min-width: 480px) {
+  .modal-overlay {
+    align-items: center;
+  }
+}
+
+.modal-content {
+  background: var(--color-surface);
+  width: 100%;
+  max-width: 440px;
+  border-radius: 2rem 2rem 0 0;
+  padding: 2.5rem 2rem;
+  box-shadow: 0 -10px 25px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-main);
+  animation: modalSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (min-width: 480px) {
+  .modal-content {
+    border-radius: 2rem;
+    animation: modalFadeIn 0.3s ease;
+  }
+}
+
+@keyframes modalSlideUp {
+  from {
+    transform: translateY(100%);
+  }
+
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes modalFadeIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.modal-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.modal-close-btn {
+  background: var(--color-bg);
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+/* FORM ELEMENTS */
+.form-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.input-container {
+  background: var(--color-input-bg);
+  border: 2px solid var(--color-border);
+  border-radius: 1.25rem;
+  padding: 0 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  transition: all 0.2s;
+  margin-bottom: 1.5rem;
+}
+
+.input-container:focus-within {
+  border-color: var(--color-primary);
+  background: var(--color-surface);
+  box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.1);
+}
+
+.input-field {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 1rem 0;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--color-text-main);
+  outline: none;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.875rem 1.5rem;
+  border-radius: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  font-size: 0.9375rem;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  color: white !important;
+}
+
+.btn-submit {
+  width: 100%;
+  padding: 1.125rem;
+  border-radius: 1.25rem;
+  font-size: 1rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgba(29, 78, 216, 0.3);
+}
+
+.fab {
+  position: fixed;
+  bottom: 100px;
+  right: 1.5rem;
+  width: 56px;
+  height: 56px;
+  background-color: var(--color-primary);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 25px -5px rgba(29, 78, 216, 0.4);
+  border: none;
+  cursor: pointer;
+  z-index: 100;
+}
+
+.tab-btn {
+  padding: 0.5rem 1.25rem;
+  border-radius: 2rem;
+  background: #e2e8f0;
+  border: none;
+  color: #64748b;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+body.dark-theme .tab-btn {
+  background: #334155;
+  color: #94a3b8;
+}
+
+.tab-btn.active {
+  background: #1d4ed8;
+  color: white;
+}
+
+.icon-btn-ghost {
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
 @keyframes slideInRight {
   from {
@@ -22,14 +295,15 @@
   transform: scale(0.97);
 }
 
-/* Ensure no double FAB on pages */
-.tasks-page .tasks-header .icon-btn-ghost:last-child,
-.shopping-page .shopping-header .icon-btn-ghost:last-child {
-  display: none;
-  /* Already removed from JSX, but just in case */
-}
-
-/* Profiles and other common containers */
 .profile-page {
   padding-bottom: 120px;
+}
+
+.card {
+  background: var(--color-surface);
+  border-radius: 1.25rem;
+  padding: 1.25rem;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border);
+  margin-bottom: 1rem;
 }

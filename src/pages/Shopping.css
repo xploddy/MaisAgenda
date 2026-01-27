@@ -1,46 +1,22 @@
 .shopping-page {
-    padding-top: 1.5rem;
+    padding-bottom: 120px;
 }
 
 .shopping-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1.5rem;
+    padding: 1.5rem 0;
 }
 
-.shop-item {
-    background: var(--color-surface);
-    border-radius: 1rem;
-    padding: 1.125rem;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    box-shadow: var(--shadow-sm);
-    margin-bottom: 0.75rem;
-    border: 1px solid var(--color-border);
+.shopping-header h1 {
+    font-size: 1.25rem;
+    font-weight: 800;
+    letter-spacing: -0.025em;
 }
 
-.shop-item.bought {
-    opacity: 0.5;
-}
-
-.item-name {
-    flex: 1;
-    font-size: 0.9375rem;
-    font-weight: 600;
-    color: var(--color-text-main);
-}
-
-.check-badge {
-    width: 24px;
-    height: 24px;
-    background: #ecfdf5;
-    color: #10b981;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+.shopping-list {
+    margin-top: 0.5rem;
 }
 
 .shop-footer {
@@ -48,23 +24,6 @@
     padding: 2rem 0;
     color: var(--color-text-muted);
     font-size: 0.875rem;
-    font-weight: 500;
-}
-
-.fab {
-    position: fixed;
-    bottom: 100px;
-    right: 1.5rem;
-    width: 56px;
-    height: 56px;
-    background-color: #2563eb;
-    color: white;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.4);
-    border: none;
-    cursor: pointer;
-    z-index: 90;
+    font-weight: 700;
+    opacity: 0.6;
 }

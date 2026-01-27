@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit2, X, Check } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Check, ChevronLeft, MoreHorizontal } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import './Shopping.css';
 import './Tasks.css';
 
 const Shopping = () => {
-    const [activeTab, setActiveTab] = useState('Mercearia');
+    const navigate = useNavigate();
     const [items, setItems] = useState([]);
+    const [activeTab, setActiveTab] = useState('Mercearia');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
     const [formData, setFormData] = useState({ name: '', category: 'Mercearia' });
@@ -20,7 +22,6 @@ const Shopping = () => {
             .from('shopping_items')
             .select('*')
             .order('created_at', { ascending: false });
-
         if (!error && data) setItems(data);
     };
 
@@ -30,31 +31,17 @@ const Shopping = () => {
         if (!user) return;
 
         if (editingItem) {
-            const { error } = await supabase
-                .from('shopping_items')
-                .update({ ...formData })
-                .eq('id', editingItem.id);
-            if (!error) fetchItems();
+            await supabase.from('shopping_items').update({ ...formData }).eq('id', editingItem.id);
         } else {
-            const { error } = await supabase
-                .from('shopping_items')
-                .insert([{ ...formData, user_id: user.id, bought: false }]);
-            if (!error) fetchItems();
+            await supabase.from('shopping_items').insert([{ ...formData, user_id: user.id, bought: false }]);
         }
+        fetchItems();
         closeModal();
     };
 
     const toggleItem = async (item) => {
-        const { error } = await supabase
-            .from('shopping_items')
-            .update({ bought: !item.bought })
-            .eq('id', item.id);
-        if (!error) fetchItems();
-    };
-
-    const deleteItem = async (id) => {
-        const { error } = await supabase.from('shopping_items').delete().eq('id', id);
-        if (!error) setItems(items.filter(i => i.id !== id));
+        const { error } = await supabase.from('shopping_items').update({ bought: !item.bought }).eq('id', item.id);
+        setItems(prev => prev.map(i => i.id === item.id ? { ...i, bought: !item.bought } : i));
     };
 
     const openModal = (item = null) => {
@@ -68,24 +55,24 @@ const Shopping = () => {
         setIsModalOpen(true);
     };
 
-    const closeModal = () => {
-        setIsModalOpen(false);
-        setEditingItem(null);
-    };
+    const closeModal = () => { setIsModalOpen(false); setEditingItem(null); };
 
     const filteredItems = items.filter(i => i.category === activeTab);
     const tabs = ['Mercearia', 'Limpeza', 'Farmácia', 'Outros'];
 
     return (
-        <div className="pb-20">
+        <div className="shopping-page animate-fade-in">
             <header className="shopping-header">
-                <h1>Minhas Compras</h1>
-                <button className="icon-btn text-primary" onClick={() => openModal()}>
-                    <Plus size={24} />
+                <button className="icon-btn" style={{ background: 'transparent', border: 'none', boxShadow: 'none' }} onClick={() => navigate('/')}>
+                    <ChevronLeft size={24} color="#6b7280" />
+                </button>
+                <h1 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Minhas Listas...</h1>
+                <button className="icon-btn" style={{ background: 'transparent', border: 'none', boxShadow: 'none' }}>
+                    <MoreHorizontal size={24} color="#6b7280" />
                 </button>
             </header>
 
-            <div className="category-tabs">
+            <div className="category-tabs" style={{ marginBottom: '1.5rem', display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
                 {tabs.map(tab => (
                     <button
                         key={tab}
@@ -97,65 +84,56 @@ const Shopping = () => {
                 ))}
             </div>
 
-            <div className="card mb-4 min-h-[300px]">
-                <div className="shopping-list">
-                    {filteredItems.length === 0 ? (
-                        <div className="p-4 text-center text-muted">Nenhum item nesta lista.</div>
-                    ) : (
-                        filteredItems.map(item => (
-                            <div key={item.id} className={`shopping-item ${item.bought ? 'bought' : ''}`}>
-                                <div className="flex items-center gap-3 flex-1" onClick={() => toggleItem(item)}>
-                                    <div className={`checkbox ${item.bought ? 'checked' : ''}`}>
-                                        {item.bought && <Check size={16} color="white" />}
-                                    </div>
-                                    <span className="text-sm font-medium">{item.name}</span>
-                                </div>
-                                <div className="flex gap-2">
-                                    <button onClick={() => openModal(item)} className="p-1 text-muted hover:text-blue-500">
-                                        <Edit2 size={16} />
-                                    </button>
-                                    <button onClick={() => deleteItem(item.id)} className="p-1 text-muted hover:text-red-500">
-                                        <Trash2 size={16} />
-                                    </button>
-                                </div>
+            <div className="shopping-list">
+                {filteredItems.length === 0 ? (
+                    <div className="text-center text-muted py-10">Lista vazia.</div>
+                ) : (
+                    filteredItems.map(item => (
+                        <div key={item.id} className={`shop-item ${item.bought ? 'bought' : ''}`}>
+                            <div className={`checkbox-custom ${item.bought ? 'checked' : ''}`} onClick={() => toggleItem(item)}>
+                                {item.bought && <Check size={16} color="white" />}
                             </div>
-                        ))
-                    )}
-                </div>
+                            <div className="item-name" onClick={() => openModal(item)}>{item.name}</div>
+                            <div className="check-badge">
+                                <Check size={16} />
+                            </div>
+                        </div>
+                    ))
+                )}
             </div>
 
+            <div className="shop-footer">Histórico de Compras</div>
+
+            <button className="fab" onClick={() => openModal()}>
+                <Plus size={32} />
+            </button>
+
             {isModalOpen && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-slate-800 w-full max-w-sm rounded-2xl p-6 animate-fade-in">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="font-bold text-lg">{editingItem ? 'Editar Item' : 'Novo Item'}</h3>
-                            <button onClick={closeModal}><X size={20} /></button>
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-bold">{editingItem ? 'Editar Item' : 'Novo Item'}</h3>
+                            <button className="icon-btn" style={{ background: 'transparent', border: 'none', boxShadow: 'none' }} onClick={closeModal}><X size={24} /></button>
                         </div>
-                        <form onSubmit={handleSave} className="flex flex-col gap-4">
+                        <form onSubmit={handleSave}>
                             <div className="form-group">
                                 <label className="form-label">Nome do Item</label>
                                 <input
                                     autoFocus
                                     type="text"
-                                    required
                                     className="form-input"
                                     value={formData.name}
                                     onChange={e => setFormData({ ...formData, name: e.target.value })}
+                                    required
                                 />
                             </div>
                             <div className="form-group">
                                 <label className="form-label">Categoria</label>
-                                <select
-                                    className="form-input"
-                                    value={formData.category}
-                                    onChange={e => setFormData({ ...formData, category: e.target.value })}
-                                >
-                                    {tabs.map(tab => <option key={tab} value={tab}>{tab}</option>)}
+                                <select className="form-input" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
+                                    {tabs.map(tab => <option key={tab}>{tab}</option>)}
                                 </select>
                             </div>
-                            <button type="submit" className="btn btn-primary w-full py-3 mt-2">
-                                {editingItem ? 'Salvar Alterações' : 'Adicionar Item'}
-                            </button>
+                            <button type="submit" className="btn btn-primary w-full mt-4">Salvar</button>
                         </form>
                     </div>
                 </div>

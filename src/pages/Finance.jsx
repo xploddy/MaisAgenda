@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
-import { TrendingUp, TrendingDown, DollarSign, Plus, X, Trash2, Edit2 } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis } from 'recharts';
+import { TrendingUp, TrendingDown, DollarSign, Plus, X, ChevronLeft, Bell } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import './Finance.css';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
-const CATEGORIES = ['Moradia', 'Alimentação', 'Transporte', 'Lazer', 'Saúde', 'Outros', 'Salário', 'Investimento'];
 
 const Finance = () => {
+    const navigate = useNavigate();
     const [transactions, setTransactions] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [editingTrans, setEditingTrans] = useState(null);
     const [formData, setFormData] = useState({ title: '', amount: '', type: 'expense', category: 'Outros' });
 
     useEffect(() => {
@@ -21,9 +21,7 @@ const Finance = () => {
         const { data, error } = await supabase
             .from('transactions')
             .select('*')
-            .order('date', { ascending: false })
             .order('created_at', { ascending: false });
-
         if (!error && data) setTransactions(data);
     };
 
@@ -31,48 +29,14 @@ const Finance = () => {
         e.preventDefault();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
-
-        const payload = {
-            ...formData,
-            amount: parseFloat(formData.amount),
-            date: editingTrans ? editingTrans.date : new Date().toISOString()
-        };
-
-        if (editingTrans) {
-            const { error } = await supabase.from('transactions').update(payload).eq('id', editingTrans.id);
-            if (!error) fetchTransactions();
-        } else {
-            const { error } = await supabase.from('transactions').insert([{ ...payload, user_id: user.id }]);
-            if (!error) fetchTransactions();
-        }
-        closeModal();
-    };
-
-    const deleteTransaction = async (id) => {
-        const { error } = await supabase.from('transactions').delete().eq('id', id);
-        if (!error) setTransactions(transactions.filter(t => t.id !== id));
-    };
-
-    const openModal = (trans = null) => {
-        if (trans) {
-            setEditingTrans(trans);
-            setFormData({ title: trans.title, amount: trans.amount, type: trans.type, category: trans.category });
-        } else {
-            setEditingTrans(null);
-            setFormData({ title: '', amount: '', type: 'expense', category: 'Outros' });
-        }
-        setIsModalOpen(true);
-    };
-
-    const closeModal = () => {
+        await supabase.from('transactions').insert([{ ...formData, amount: parseFloat(formData.amount), user_id: user.id, date: new Date().toISOString() }]);
+        fetchTransactions();
         setIsModalOpen(false);
-        setEditingTrans(null);
     };
 
-    // Calculations
-    const income = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + Number(t.amount), 0);
-    const expense = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + Number(t.amount), 0);
-    const balance = income - expense;
+    const incomeTotal = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + Number(t.amount), 0);
+    const expenseTotal = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + Number(t.amount), 0);
+    const balanceTotal = incomeTotal - expenseTotal;
 
     const expensesByCategory = transactions
         .filter(t => t.type === 'expense')
@@ -83,111 +47,123 @@ const Finance = () => {
 
     const pieData = Object.keys(expensesByCategory).map(key => ({ name: key, value: expensesByCategory[key] }));
 
+    const barData = [
+        { name: 'Jan', val: 1200 }, { name: 'Fev', val: 2100 },
+        { name: 'Mar', val: 800 }, { name: 'Abr', val: balanceTotal > 0 ? balanceTotal / 2 : 500 }
+    ];
+
     return (
-        <div className="pb-20">
-            <header className="mb-6 pt-4">
-                <h1 className="mb-4">Financeiro</h1>
-                <div className="card-balance relative overflow-hidden">
-                    <div className="relative z-10">
-                        <div className="text-sm opacity-80">Saldo Total</div>
-                        <div className="text-3xl font-bold mt-1">
-                            {balance.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                        </div>
-                        <div className="flex gap-4 mt-4">
-                            <div className="flex items-center gap-1 text-sm bg-white/10 px-2 py-1 rounded backdrop-blur-sm">
-                                <TrendingDown size={16} className="text-red-300" />
-                                {expense.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                            </div>
-                            <div className="flex items-center gap-1 text-sm bg-white/10 px-2 py-1 rounded backdrop-blur-sm">
-                                <TrendingUp size={16} className="text-green-300" />
-                                {income.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                            </div>
-                        </div>
-                    </div>
-                </div>
+        <div className="finance-page animate-fade-in">
+            <header className="flex justify-between items-center mb-6">
+                <button className="icon-btn" style={{ background: 'transparent', border: 'none', boxShadow: 'none' }} onClick={() => navigate('/')}>
+                    <ChevronLeft size={24} color="#6b7280" />
+                </button>
+                <h1 style={{ fontSize: '1.25rem', fontWeight: 700 }}>SmartOrganizer</h1>
+                <button className="icon-btn" style={{ background: 'transparent', border: 'none', boxShadow: 'none' }}>
+                    <Bell size={24} color="#6b7280" />
+                </button>
             </header>
 
-            <section className="mb-6">
-                <h2 className="section-title">Despesas por Categoria</h2>
-                <div className="card h-64 flex items-center justify-center relative">
-                    {pieData.length > 0 ? (
+            <div className="finance-header-card">
+                <div className="finance-summary-info">
+                    <div className="summary-line">Saldo: <span className="summary-value">R$ {balanceTotal.toLocaleString('pt-BR')}</span></div>
+                    <div className="summary-line">Despesas: <span className="summary-value" style={{ opacity: 0.8 }}>R$ {expenseTotal.toLocaleString('pt-BR')}</span></div>
+                    <div className="summary-line">Receitas: <span className="summary-value" style={{ opacity: 0.8 }}>R$ {incomeTotal.toLocaleString('pt-BR')}</span></div>
+                </div>
+                <div style={{ width: 80, height: 80 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                            <Pie data={[{ value: 40 }, { value: 60 }]} innerRadius={25} outerRadius={35} dataKey="value" startAngle={90} endAngle={450}>
+                                <Cell fill="#3b82f6" />
+                                <Cell fill="#f43f5e" />
+                            </Pie>
+                        </PieChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+
+            <div className="chart-card">
+                <h2>Despesas do Mês</h2>
+                <div className="chart-layout">
+                    <div style={{ width: 140, height: 140 }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
-                                <Pie data={pieData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                                    {pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                                <Pie data={pieData.length > 0 ? pieData : [{ value: 1 }]} innerRadius={45} outerRadius={65} dataKey="value">
+                                    {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                                    {pieData.length === 0 && <Cell fill="#e2e8f0" />}
                                 </Pie>
                             </PieChart>
                         </ResponsiveContainer>
-                    ) : (
-                        <div className="text-muted text-sm">Sem dados de despesas</div>
-                    )}
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="text-center">
-                            <span className="text-xs text-muted block">Total</span>
-                            <span className="font-bold text-lg">{expense.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                        </div>
+                    </div>
+                    <div className="legend-grid">
+                        {pieData.slice(0, 4).map((entry, idx) => (
+                            <div key={idx} className="legend-item">
+                                <div className="legend-dot" style={{ background: COLORS[idx % COLORS.length] }}></div>
+                                {entry.name}
+                            </div>
+                        ))}
                     </div>
                 </div>
-            </section>
+
+                <div style={{ width: '100%', height: 80, marginTop: '2rem' }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={barData}>
+                            <Bar dataKey="val" radius={[4, 4, 0, 0]}>
+                                {barData.map((_, i) => <Cell key={i} fill={i === 3 ? '#3b82f6' : '#e2e8f0'} />)}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
 
             <section>
                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="section-title mb-0">Transações</h2>
-                    <button onClick={() => openModal()} className="text-primary text-sm font-semibold hover:bg-blue-50 px-3 py-1 rounded-lg">+ Nova</button>
+                    <h2 className="section-title mb-0">Recentes</h2>
+                    <button className="icon-btn" style={{ padding: '0.4rem', border: 'none', background: 'transparent', boxShadow: 'none' }} onClick={() => setIsModalOpen(true)}>
+                        <Plus size={20} color="#1d4ed8" />
+                    </button>
                 </div>
-                <div className="flex flex-col gap-2">
-                    {transactions.map(t => (
-                        <div key={t.id} className="card flex justify-between items-center py-3 px-4">
-                            <div className="flex items-center gap-3">
-                                <div className={`p-2 rounded-full ${t.type === 'income' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
-                                    <DollarSign size={16} />
-                                </div>
-                                <div onClick={() => openModal(t)}>
-                                    <div className="font-semibold text-sm">{t.title}</div>
-                                    <div className="text-xs text-muted">{new Date(t.date || t.created_at).toLocaleDateString('pt-BR')} • {t.category}</div>
-                                </div>
+                {transactions.map(t => (
+                    <div key={t.id} className="trans-item">
+                        <div className="trans-main">
+                            <div className="checkbox-custom checked" style={{ borderRadius: '50%', width: 18, height: 18, background: t.type === 'income' ? '#10b981' : '#f43f5e', border: 'none' }}>
+                                <Check size={12} color="white" />
                             </div>
-                            <div className="flex items-center gap-4">
-                                <div className={`font-bold text-sm ${t.type === 'income' ? 'text-green-600' : 'text-red-500'}`}>
-                                    {t.type === 'expense' ? '- ' : '+ '}{parseFloat(t.amount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                                </div>
-                                <button className="text-muted hover:text-red-500" onClick={() => deleteTransaction(t.id)}><Trash2 size={16} /></button>
-                            </div>
+                            <div className="trans-desc">{t.title}</div>
                         </div>
-                    ))}
-                </div>
+                        <div className={`trans-value ${t.type}`}>{t.type === 'expense' ? '- ' : '+ '}R$ {Number(t.amount).toLocaleString('pt-BR')}</div>
+                    </div>
+                ))}
             </section>
 
+            <button className="fab" onClick={() => setIsModalOpen(true)}>
+                <Plus size={32} />
+            </button>
+
             {isModalOpen && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-slate-800 w-full max-w-sm rounded-2xl p-6 animate-fade-in mb-safe">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="font-bold text-lg">{editingTrans ? 'Editar Transação' : 'Nova Transação'}</h3>
-                            <button onClick={closeModal}><X size={20} /></button>
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-bold">Nova Transação</h3>
+                            <button className="icon-btn" style={{ background: 'transparent', border: 'none', boxShadow: 'none' }} onClick={() => setIsModalOpen(false)}><X size={24} /></button>
                         </div>
-                        <form onSubmit={handleSave} className="flex flex-col gap-4">
-                            <div>
-                                <label className="text-sm text-muted">Tipo</label>
-                                <div className="flex gap-2 mt-1">
-                                    <button type="button" onClick={() => setFormData({ ...formData, type: 'expense' })} className={`flex-1 py-2 rounded-lg font-medium text-sm border ${formData.type === 'expense' ? 'bg-red-100 border-red-200 text-red-600' : 'border-gray-200'}`}>Despesa</button>
-                                    <button type="button" onClick={() => setFormData({ ...formData, type: 'income' })} className={`flex-1 py-2 rounded-lg font-medium text-sm border ${formData.type === 'income' ? 'bg-green-100 border-green-200 text-green-600' : 'border-gray-200'}`}>Receita</button>
+                        <form onSubmit={handleSave}>
+                            <div className="form-group">
+                                <label className="form-label">Valor (R$)</label>
+                                <input autoFocus type="number" step="0.01" className="form-input" style={{ fontSize: '1.5rem', fontWeight: 700 }} placeholder="0,00" value={formData.amount} onChange={e => setFormData({ ...formData, amount: e.target.value })} required />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Descrição</label>
+                                <input type="text" className="form-input" placeholder="O que você comprou?" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} required />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Tipo</label>
+                                <div className="flex gap-2">
+                                    <button type="button" className={`flex-1 btn ${formData.type === 'expense' ? 'btn-primary' : ''}`} style={{ background: formData.type === 'expense' ? '#f43f5e' : '' }} onClick={() => setFormData({ ...formData, type: 'expense' })}>Despesa</button>
+                                    <button type="button" className={`flex-1 btn ${formData.type === 'income' ? 'btn-primary' : ''}`} style={{ background: formData.type === 'income' ? '#10b981' : '' }} onClick={() => setFormData({ ...formData, type: 'income' })}>Receita</button>
                                 </div>
                             </div>
-                            <div>
-                                <label className="text-sm text-muted">Valor</label>
-                                <input type="number" step="0.01" required className="w-full p-3 rounded-xl border dark:bg-slate-700 dark:border-slate-600 font-bold" value={formData.amount} onChange={e => setFormData({ ...formData, amount: e.target.value })} />
-                            </div>
-                            <div>
-                                <label className="text-sm text-muted">Descrição</label>
-                                <input type="text" required className="w-full p-3 rounded-xl border dark:bg-slate-700 dark:border-slate-600" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} />
-                            </div>
-                            <div>
-                                <label className="text-sm text-muted">Categoria</label>
-                                <select className="w-full p-3 rounded-xl border dark:bg-slate-700 dark:border-slate-600" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
-                                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                                </select>
-                            </div>
-                            <button type="submit" className="btn btn-primary w-full py-3 mt-2">{editingTrans ? 'Salvar Alterações' : 'Salvar'}</button>
+                            <button type="submit" className="btn btn-primary w-full mt-4">Salvar Transação</button>
                         </form>
                     </div>
                 </div>

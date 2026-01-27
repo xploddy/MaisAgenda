@@ -1,17 +1,19 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 :root {
-  /* Light Theme */
-  --color-primary: #2563eb; /* Royal Blue */
-  --color-primary-dark: #1e40af;
-  --color-secondary: #059669; /* Emerald Green */
-  --color-bg: #f8fafc;
+  /* Exact Palette from Image */
+  --color-primary: #1d4ed8;
+  --color-success: #10b981;
+  --color-danger: #ef4444;
+  --color-bg: #eff3f6;
+  /* Soft blue-ish grey background */
   --color-surface: #ffffff;
-  --color-text-main: #1e293b;
-  --color-text-muted: #64748b;
+  --color-text-main: #111827;
+  --color-text-muted: #6b7280;
   --color-border: #e2e8f0;
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  
+
+  --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
   --safe-area-bottom: env(safe-area-inset-bottom);
 }
 
@@ -19,8 +21,8 @@
   :root {
     --color-bg: #0f172a;
     --color-surface: #1e293b;
-    --color-text-main: #f1f5f9;
-    --color-text-muted: #94a3b8;
+    --color-text-main: #f3f4f6;
+    --color-text-muted: #9ca3af;
     --color-border: #334155;
   }
 }
@@ -33,104 +35,160 @@
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: 'Inter', sans-serif;
   background-color: var(--color-bg);
   color: var(--color-text-main);
-  transition: background-color 0.3s ease, color 0.3s ease;
   overflow-x: hidden;
   max-width: 100vw;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Animations */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.animate-fade-in {
-  animation: fadeIn 0.4s ease-out forwards;
-}
-
-/* Utilities */
 .container {
-  max-width: 600px; /* Mobile focused */
+  max-width: 480px;
+  /* Standard mobile view width */
   margin: 0 auto;
-  padding: 0 1rem;
-  padding-bottom: calc(80px + var(--safe-area-bottom)); /* Space for bottom nav */
+  padding: 0 1.25rem 100px;
+  min-height: 100vh;
 }
 
+/* Common Components following the Image style */
 .card {
-  background-color: var(--color-surface);
-  border-radius: 1rem;
-  padding: 1rem;
+  background: var(--color-surface);
+  border-radius: 1.25rem;
+  padding: 1.25rem;
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--color-border);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.card:active {
-  transform: scale(0.98);
+  margin-bottom: 1rem;
 }
 
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.75rem;
+  padding: 0.875rem 1.5rem;
+  border-radius: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   border: none;
-  font-size: 0.95rem;
+  font-size: 0.9375rem;
 }
 
 .btn-primary {
   background-color: var(--color-primary);
   color: white;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+  box-shadow: 0 10px 15px -3px rgba(29, 78, 216, 0.2);
 }
 
 .btn-primary:active {
-  background-color: var(--color-primary-dark);
+  transform: scale(0.96);
 }
 
 .icon-btn {
-  background: none;
-  border: none;
-  padding: 0.5rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  padding: 0.75rem;
+  color: var(--color-text-main);
+  border-radius: 1rem;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Modal and Overlays */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.modal-content {
+  background: var(--color-surface);
+  width: 100%;
+  max-width: 400px;
+  border-radius: 2rem;
+  padding: 2rem;
+  box-shadow: var(--shadow-md);
+  position: relative;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+/* Form Styles */
+.form-group {
+  margin-bottom: 1.25rem;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
   color: var(--color-text-muted);
+}
+
+.form-input {
+  width: 100%;
+  padding: 1rem;
+  border-radius: 1rem;
+  border: 1px solid var(--color-border);
+  background-color: #f9fafb;
+  color: var(--color-text-main);
+  font-family: inherit;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  background-color: #fff;
+}
+
+/* Checkbox Style from Image */
+.checkbox-custom {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #d1d5db;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  border-radius: 50%;
-  transition: background-color 0.2s, color 0.2s;
+  transition: all 0.2s;
 }
 
-.icon-btn:hover {
-  background-color: rgba(0,0,0,0.05);
-  color: var(--color-primary);
-}
-
-/* Flex Utilities */
-.flex { display: flex; }
-.flex-col { flex-direction: column; }
-.items-center { align-items: center; }
-.justify-between { justify-content: space-between; }
-.gap-2 { gap: 0.5rem; }
-.gap-4 { gap: 1rem; }
-.w-full { width: 100%; }
-
-/* Typography */
-h1 { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.025em; margin-bottom: 0.5rem; }
-h2 { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; }
-h3 { font-size: 1rem; font-weight: 600; }
-.text-sm { font-size: 0.875rem; }
-.text-xs { font-size: 0.75rem; }
-.text-muted { color: var(--color-text-muted); }
-.font-bold { font-weight: 700; }
-
-/* Dashboard Grid */
-.grid-2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+.checkbox-custom.checked {
+  background-color: var(--color-success);
+  border-color: var(--color-success);
 }

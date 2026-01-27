@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Clock, Plus, X, Trash2, Edit2, Calendar as CalendarIcon, Briefcase, Users, Heart, Save, MapPin, Repeat, Bell, AlignLeft, UserPlus, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, Plus, X, Trash2, Edit2, Calendar as CalendarIcon, Briefcase, Users, Heart, Save, MapPin, Repeat, Bell, AlignLeft, UserPlus, Check, AlertCircle } from 'lucide-react';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay, parseISO, setMonth, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -16,20 +16,12 @@ const Planning = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
     const [editingEvent, setEditingEvent] = useState(null);
+    const [deleteId, setDeleteId] = useState(null);
     const [formData, setFormData] = useState({
-        title: '',
-        location: '',
-        startDate: format(new Date(), 'yyyy-MM-dd'),
-        startTime: '09:00',
-        endDate: format(new Date(), 'yyyy-MM-dd'),
-        endTime: '10:00',
-        allDay: false,
-        repeatFrequency: 'none',
-        reminderMinutes: '15',
-        status: 'busy',
-        description: '',
-        participants: [],
-        type: 'work'
+        title: '', location: '', startDate: format(new Date(), 'yyyy-MM-dd'), startTime: '09:00',
+        endDate: format(new Date(), 'yyyy-MM-dd'), endTime: '10:00',
+        allDay: false, repeatFrequency: 'none', reminderMinutes: '15',
+        status: 'busy', description: '', participants: [], type: 'work'
     });
 
     useEffect(() => {
@@ -63,36 +55,35 @@ const Planning = () => {
 
         const payload = {
             title: formData.title,
-            location: formData.location,
+            location: formData.location || null,
             start_time: start.toISOString(),
             end_time: end.toISOString(),
             all_day: formData.allDay,
             repeat_frequency: formData.repeatFrequency,
             reminder_minutes: parseInt(formData.reminderMinutes),
             status: formData.status,
-            description: formData.description,
-            participants: formData.participants,
+            description: formData.description || null,
+            participants: formData.participants || [],
             type: formData.type,
             user_id: user.id
         };
 
-        try {
-            if (editingEvent) {
-                await supabase.from('calendar_events').update(payload).eq('id', editingEvent.id);
-            } else {
-                await supabase.from('calendar_events').insert([payload]);
-            }
+        const result = editingEvent
+            ? await supabase.from('calendar_events').update(payload).eq('id', editingEvent.id)
+            : await supabase.from('calendar_events').insert([payload]);
+
+        if (result.error) {
+            alert("Erro ao salvar: " + result.error.message + "\n\nIMPORTANTE: Verifique se rodou o script SQL de instalação da tabela.");
+        } else {
             fetchEvents();
             closeModal();
-        } catch (err) {
-            console.error(err);
-            alert("Erro ao salvar evento. Certifique-se de que rodou as migrações SQL.");
         }
     };
 
-    const deleteEvent = async (id) => {
-        if (!window.confirm("Excluir agendamento?")) return;
-        await supabase.from('calendar_events').delete().eq('id', id);
+    const confirmDelete = async () => {
+        if (!deleteId) return;
+        await supabase.from('calendar_events').delete().eq('id', deleteId);
+        setDeleteId(null);
         fetchEvents();
     };
 
@@ -119,19 +110,10 @@ const Planning = () => {
         } else {
             setEditingEvent(null);
             setFormData({
-                title: '',
-                location: '',
-                startDate: format(selectedDate, 'yyyy-MM-dd'),
-                startTime: '09:00',
-                endDate: format(selectedDate, 'yyyy-MM-dd'),
-                endTime: '10:00',
-                allDay: false,
-                repeatFrequency: 'none',
-                reminderMinutes: '15',
-                status: 'busy',
-                description: '',
-                participants: [],
-                type: 'work'
+                title: '', location: '', startDate: format(selectedDate, 'yyyy-MM-dd'), startTime: '09:00',
+                endDate: format(selectedDate, 'yyyy-MM-dd'), endTime: '10:00',
+                allDay: false, repeatFrequency: 'none', reminderMinutes: '15',
+                status: 'busy', description: '', participants: [], type: 'work'
             });
         }
         setIsModalOpen(true);
@@ -139,24 +121,8 @@ const Planning = () => {
 
     const closeModal = () => { setIsModalOpen(false); setEditingEvent(null); };
 
-    const handleAddParticipant = () => {
-        const email = prompt("Email do participante:");
-        if (email && email.includes('@')) {
-            setFormData({ ...formData, participants: [...formData.participants, email] });
-        }
-    };
-
-    const removeParticipant = (index) => {
-        const newList = [...formData.participants];
-        newList.splice(index, 1);
-        setFormData({ ...formData, participants: newList });
-    };
-
-    // Month picker logic
-    const months = Array.from({ length: 12 }, (_, i) => i);
     const handleMonthSelect = (m) => {
-        const newDate = setMonth(currentMonth, m);
-        setCurrentMonth(newDate);
+        setCurrentMonth(setMonth(currentMonth, m));
         setIsMonthPickerOpen(false);
     };
 
@@ -174,7 +140,8 @@ const Planning = () => {
             const cloneDay = day;
             const hasEvent = allEvents.some(e => isSameDay(parseISO(e.start_time), cloneDay));
             days.push(
-                <div key={day} className={`calendar-day ${!isSameMonth(day, monthStart) ? "other-month" : ""} ${isSameDay(day, selectedDate) ? "selected" : ""} ${isSameDay(day, new Date()) ? "today" : ""}`} onClick={() => { setSelectedDate(cloneDay); setFormData({ ...formData, startDate: format(cloneDay, 'yyyy-MM-dd'), endDate: format(cloneDay, 'yyyy-MM-dd') }); }}>
+                <div key={day} className={`calendar-day ${!isSameMonth(day, monthStart) ? "other-month" : ""} ${isSameDay(day, selectedDate) ? "selected" : ""} ${isSameDay(day, new Date()) ? "today" : ""}`}
+                    onClick={() => { setSelectedDate(cloneDay); setFormData({ ...formData, startDate: format(cloneDay, 'yyyy-MM-dd'), endDate: format(cloneDay, 'yyyy-MM-dd') }); }}>
                     <span>{format(day, "d")}</span>
                     {hasEvent && !isSameDay(day, selectedDate) && <div className="event-dot"></div>}
                 </div>
@@ -195,16 +162,17 @@ const Planning = () => {
 
             <div className="calendar-card">
                 <div className="calendar-nav">
-                    <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}><ChevronLeft size={20} /></button>
+                    <button className="nav-arrow-btn" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}><ChevronLeft size={20} /></button>
                     <span className="month-label clickable" onClick={() => setIsMonthPickerOpen(true)}>
                         {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
                     </span>
-                    <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}><ChevronRight size={20} /></button>
+                    <button className="nav-arrow-btn" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}><ChevronRight size={20} /></button>
                 </div>
+
                 {isMonthPickerOpen && (
                     <div className="month-picker-overlay animate-fade-in">
                         <div className="month-grid">
-                            {months.map(m => (
+                            {Array.from({ length: 12 }, (_, i) => i).map(m => (
                                 <button key={m} className={`month-btn ${currentMonth.getMonth() === m ? 'active' : ''}`} onClick={() => handleMonthSelect(m)}>
                                     {format(setMonth(new Date(), m), 'MMM', { locale: ptBR })}
                                 </button>
@@ -219,25 +187,20 @@ const Planning = () => {
             </div>
 
             <section className="agenda-section">
-                <div className="section-header">
-                    <h2>Agenda de {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}</h2>
-                </div>
+                <h2>Agenda de {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}</h2>
                 <div className="event-list">
-                    {events.length === 0 ? <div className="empty-state">Nenhum agendamento para este dia.</div> :
+                    {events.length === 0 ? <div className="empty-state">Livre para hoje.</div> :
                         events.map(evt => (
                             <div key={evt.id} className="event-item-modern">
                                 <div className={`event-icon ${evt.type}`}>
-                                    {evt.type === 'work' ? <Briefcase size={16} /> : evt.type === 'personal' ? <Users size={16} /> : <Heart size={16} />}
+                                    {evt.type === 'work' ? <Briefcase size={18} /> : evt.type === 'personal' ? <Users size={18} /> : <Heart size={18} />}
                                 </div>
                                 <div className="event-info" onClick={() => openModal(evt)}>
                                     <div className="event-title">{evt.title}</div>
-                                    <div className="event-time">
-                                        <Clock size={12} /> {format(parseISO(evt.start_time), 'HH:mm')}
-                                        {evt.end_time && ` - ${format(parseISO(evt.end_time), 'HH:mm')}`}
-                                    </div>
+                                    <div className="event-time"><Clock size={12} /> {format(parseISO(evt.start_time), 'HH:mm')}{evt.end_time && ` - ${format(parseISO(evt.end_time), 'HH:mm')}`}</div>
                                     {evt.location && <div className="event-loc"><MapPin size={10} /> {evt.location}</div>}
                                 </div>
-                                <button className="delete-btn" onClick={() => deleteEvent(evt.id)}><Trash2 size={16} /></button>
+                                <button className="delete-btn" onClick={() => setDeleteId(evt.id)}><Trash2 size={16} /></button>
                             </div>
                         ))
                     }
@@ -246,6 +209,7 @@ const Planning = () => {
 
             <button className="fab" onClick={() => openModal()}><Plus size={32} /></button>
 
+            {/* MAIN FORM MODAL */}
             {isModalOpen && (
                 <div className="modal-overlay" onClick={closeModal} style={{ alignItems: 'center' }}>
                     <div className="modal-content scrollable-modal" onClick={e => e.stopPropagation()}>
@@ -254,17 +218,11 @@ const Planning = () => {
                             <button className="modal-close-btn" onClick={closeModal}><X size={20} /></button>
                         </div>
                         <form onSubmit={handleSave}>
-                            <label className="form-label">Título do Evento</label>
-                            <div className="input-container">
-                                <AlignLeft size={20} color="var(--color-text-muted)" />
-                                <input autoFocus type="text" className="input-field" placeholder="Ex: Reunião de Projeto" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} required />
-                            </div>
+                            <label className="form-label">Título</label>
+                            <div className="input-container"><AlignLeft size={20} color="var(--color-text-muted)" /><input autoFocus type="text" className="input-field" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} required /></div>
 
-                            <label className="form-label">Local ou Sala</label>
-                            <div className="input-container">
-                                <MapPin size={20} color="var(--color-text-muted)" />
-                                <input type="text" className="input-field" placeholder="Ex: Sala 402 ou Meet" value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} />
-                            </div>
+                            <label className="form-label">Local</label>
+                            <div className="input-container"><MapPin size={20} color="var(--color-text-muted)" /><input type="text" className="input-field" value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} /></div>
 
                             <div className="form-grid">
                                 <div>
@@ -275,7 +233,7 @@ const Planning = () => {
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="form-label">Término</label>
+                                    <label className="form-label">Fim</label>
                                     <div className="input-container icon-stack">
                                         <input type="date" className="input-field minimal" value={formData.endDate} onChange={e => setFormData({ ...formData, endDate: e.target.value })} />
                                         {!formData.allDay && <input type="time" className="input-field minimal" value={formData.endTime} onChange={e => setFormData({ ...formData, endTime: e.target.value })} />}
@@ -284,82 +242,43 @@ const Planning = () => {
                             </div>
 
                             <div className="checkbox-row" onClick={() => setFormData({ ...formData, allDay: !formData.allDay })}>
-                                <div className={`custom-checkbox ${formData.allDay ? 'checked' : ''}`}>
-                                    {formData.allDay && <Check size={12} color="white" strokeWidth={4} />}
-                                </div>
+                                <div className={`custom-checkbox ${formData.allDay ? 'checked' : ''}`}>{formData.allDay && <Check size={12} color="white" strokeWidth={4} />}</div>
                                 <span>Dia Inteiro</span>
                             </div>
 
                             <div className="form-grid">
                                 <div>
                                     <label className="form-label">Repetir</label>
-                                    <div className="input-container">
-                                        <Repeat size={18} color="var(--color-text-muted)" />
-                                        <select className="input-field" value={formData.repeatFrequency} onChange={e => setFormData({ ...formData, repeatFrequency: e.target.value })}>
-                                            <option value="none">Não repetir</option>
-                                            <option value="daily">Diário</option>
-                                            <option value="weekly">Semanal</option>
-                                            <option value="monthly">Mensal</option>
-                                        </select>
-                                    </div>
+                                    <div className="input-container"><select className="input-field" value={formData.repeatFrequency} onChange={e => setFormData({ ...formData, repeatFrequency: e.target.value })}><option value="none">Nunca</option><option value="daily">Diário</option><option value="weekly">Semanal</option><option value="monthly">Mensal</option></select></div>
                                 </div>
                                 <div>
                                     <label className="form-label">Lembrete</label>
-                                    <div className="input-container">
-                                        <Bell size={18} color="var(--color-text-muted)" />
-                                        <select className="input-field" value={formData.reminderMinutes} onChange={e => setFormData({ ...formData, reminderMinutes: e.target.value })}>
-                                            <option value="0">Sem lembrete</option>
-                                            <option value="5">5 min antes</option>
-                                            <option value="15">15 min antes</option>
-                                            <option value="30">30 min antes</option>
-                                            <option value="60">1 hora antes</option>
-                                        </select>
-                                    </div>
+                                    <div className="input-container"><select className="input-field" value={formData.reminderMinutes} onChange={e => setFormData({ ...formData, reminderMinutes: e.target.value })}><option value="0">Sem aviso</option><option value="5">5 min</option><option value="15">15 min</option><option value="60">1 hora</option></select></div>
                                 </div>
                             </div>
 
-                            <div className="form-grid">
-                                <div>
-                                    <label className="form-label">Status</label>
-                                    <div className="input-container">
-                                        <select className="input-field" value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })}>
-                                            <option value="busy">Ocupado</option>
-                                            <option value="available">Disponível</option>
-                                            <option value="away">Ausente</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="form-label">Categoria</label>
-                                    <div className="input-container">
-                                        <select className="input-field" value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value })}>
-                                            <option value="work">Trabalho</option>
-                                            <option value="personal">Pessoal</option>
-                                            <option value="health">Saúde</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
+                            <label className="form-label">Descrição</label>
+                            <div className="input-container"><textarea className="input-field" rows="2" style={{ resize: 'none', padding: '1rem 0' }} value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })}></textarea></div>
 
-                            <label className="form-label">Descrição Breve</label>
-                            <div className="input-container" style={{ alignItems: 'flex-start' }}>
-                                <textarea className="input-field" rows="2" style={{ resize: 'none', padding: '1rem 0' }} placeholder="Adicione notas aqui..." value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })}></textarea>
-                            </div>
-
-                            <label className="form-label">Participantes</label>
-                            <div className="participants-container">
-                                {formData.participants.map((p, idx) => (
-                                    <div key={idx} className="participant-chip">
-                                        {p} <button type="button" onClick={() => removeParticipant(idx)}><X size={10} /></button>
-                                    </div>
-                                ))}
-                                <button type="button" className="add-participant-btn" onClick={handleAddParticipant}>
-                                    <UserPlus size={16} /> Convidar
-                                </button>
-                            </div>
-
-                            <button type="submit" className="btn btn-primary btn-submit" style={{ marginTop: '1rem' }}><Save size={20} /> Salvar Evento</button>
+                            <button type="submit" className="btn btn-primary btn-submit" style={{ marginTop: '1rem' }}><Save size={20} /> Salvar</button>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* BEAUTIFUL DELETE MODAL */}
+            {deleteId && (
+                <div className="modal-overlay" style={{ alignItems: 'center' }}>
+                    <div className="modal-content animate-fade-in" style={{ textAlign: 'center', maxWidth: '320px' }}>
+                        <div style={{ width: '64px', height: '64px', background: '#fee2e2', color: '#ef4444', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+                            <AlertCircle size={32} />
+                        </div>
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.5rem' }}>Excluir Evento?</h3>
+                        <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '2rem' }}>Esta ação não pode ser desfeita. Você tem certeza?</p>
+                        <div style={{ display: 'flex', gap: '1rem' }}>
+                            <button className="btn" style={{ flex: 1, background: 'var(--color-bg)' }} onClick={() => setDeleteId(null)}>Cancelar</button>
+                            <button className="btn btn-primary" style={{ flex: 1, background: '#ef4444' }} onClick={confirmDelete}>Excluir</button>
+                        </div>
                     </div>
                 </div>
             )}

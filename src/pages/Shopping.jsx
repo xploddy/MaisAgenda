@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, X, Check, ChevronLeft, Calendar, Save, ShoppingBag, Tag } from 'lucide-react';
+import { Plus, Trash2, X, Check, ChevronLeft, Calendar, Save, ShoppingBag, Tag, AlertCircle } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { format, parseISO, isPast, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -12,8 +12,10 @@ const Shopping = () => {
     const location = useLocation();
     const [items, setItems] = useState([]);
     const [activeTab, setActiveTab] = useState('Mercado');
+    const [isByDate, setIsByDate] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
+    const [deleteId, setDeleteId] = useState(null);
     const [formData, setFormData] = useState({ name: '', category: 'Mercado', due_date: format(new Date(), 'yyyy-MM-dd') });
 
     useEffect(() => {
@@ -33,13 +35,9 @@ const Shopping = () => {
             .order('created_at', { ascending: false });
 
         if (error && error.message.includes('due_date')) {
-            const fallback = await supabase
-                .from('shopping_items')
-                .select('*')
-                .order('created_at', { ascending: false });
+            const fallback = await supabase.from('shopping_items').select('*').order('created_at', { ascending: false });
             data = fallback.data;
         }
-
         if (data) setItems(data);
     };
 
@@ -57,31 +55,22 @@ const Shopping = () => {
 
         try {
             payload.due_date = formData.due_date ? new Date(formData.due_date).toISOString() : null;
+            let result = editingItem
+                ? await supabase.from('shopping_items').update(payload).eq('id', editingItem.id)
+                : await supabase.from('shopping_items').insert([payload]);
 
-            let result;
-            if (editingItem) {
-                result = await supabase.from('shopping_items').update(payload).eq('id', editingItem.id);
-            } else {
-                result = await supabase.from('shopping_items').insert([payload]);
+            if (result.error && result.error.message.includes('due_date')) {
+                delete payload.due_date;
+                result = editingItem
+                    ? await supabase.from('shopping_items').update(payload).eq('id', editingItem.id)
+                    : await supabase.from('shopping_items').insert([payload]);
             }
-
-            if (result.error) {
-                if (result.error.message.includes('due_date')) {
-                    delete payload.due_date;
-                    if (editingItem) {
-                        result = await supabase.from('shopping_items').update(payload).eq('id', editingItem.id);
-                    } else {
-                        result = await supabase.from('shopping_items').insert([payload]);
-                    }
-                }
-                if (result.error) throw result.error;
-            }
-
+            if (result.error) throw result.error;
             fetchItems();
             closeModal();
         } catch (err) {
-            console.error("Save Error:", err);
-            alert("Erro ao salvar: " + err.message + "\n\nNota: Verifique se você executou os comandos SQL do arquivo migrations.sql no seu painel Supabase.");
+            console.error(err);
+            alert("Erro ao salvar item. Verifique as migrações SQL.");
         }
     };
 
@@ -90,10 +79,11 @@ const Shopping = () => {
         if (!error) fetchItems();
     };
 
-    const deleteItem = async (id) => {
-        if (!window.confirm('Excluir item?')) return;
-        const { error } = await supabase.from('shopping_items').delete().eq('id', id);
-        if (!error) fetchItems();
+    const confirmDelete = async () => {
+        if (!deleteId) return;
+        await supabase.from('shopping_items').delete().eq('id', deleteId);
+        setDeleteId(null);
+        fetchItems();
     };
 
     const openModal = (item = null) => {
@@ -154,7 +144,7 @@ const Shopping = () => {
                                     </div>
                                 </div>
                                 <div className="task-actions">
-                                    <button onClick={() => deleteItem(item.id)} className="action-circle delete"><Trash2 size={14} /></button>
+                                    <button onClick={() => setDeleteId(item.id)} className="action-circle delete"><Trash2 size={14} /></button>
                                 </div>
                                 <div className="task-category-indicator">{item.category}</div>
                             </div>
@@ -167,7 +157,7 @@ const Shopping = () => {
 
             {isModalOpen && (
                 <div className="modal-overlay" onClick={closeModal}>
-                    <div className="modal-content" onClick={e => e.stopPropagation()}>
+                    <div className="modal-content scrollable-modal" onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
                             <h3 className="modal-title"><ShoppingBag size={20} color="var(--color-primary)" /> {editingItem ? 'Editar Item' : 'Novo Item'}</h3>
                             <button className="modal-close-btn" onClick={closeModal}><X size={20} /></button>
@@ -195,6 +185,23 @@ const Shopping = () => {
 
                             <button type="submit" className="btn btn-primary btn-submit"><Save size={20} /> Salvar</button>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* DELETE MODAL */}
+            {deleteId && (
+                <div className="modal-overlay" style={{ alignItems: 'center' }}>
+                    <div className="modal-content animate-fade-in" style={{ textAlign: 'center', maxWidth: '320px' }}>
+                        <div style={{ width: '64px', height: '64px', background: '#fee2e2', color: '#ef4444', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+                            <AlertCircle size={32} />
+                        </div>
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.5rem' }}>Excluir Item?</h3>
+                        <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '2rem' }}>Deseja mesmo remover este item da sua lista?</p>
+                        <div style={{ display: 'flex', gap: '1rem' }}>
+                            <button className="btn" style={{ flex: 1, background: 'var(--color-bg)' }} onClick={() => setDeleteId(null)}>Cancelar</button>
+                            <button className="btn btn-primary" style={{ flex: 1, background: '#ef4444' }} onClick={confirmDelete}>Excluir</button>
+                        </div>
                     </div>
                 </div>
             )}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Check, ChevronLeft, Calendar, X, Trash2, Edit2, Save, Tag } from 'lucide-react';
+import { Plus, Check, ChevronLeft, Calendar, X, Trash2, Edit2, Save, Tag, AlertCircle } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { format, parseISO, isPast, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -13,6 +13,7 @@ const Tasks = () => {
     const [activeTab, setActiveTab] = useState('Todos');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTask, setEditingTask] = useState(null);
+    const [deleteId, setDeleteId] = useState(null);
     const [formData, setFormData] = useState({ title: '', category: 'Trabalho', priority: 'medium', due_date: format(new Date(), 'yyyy-MM-dd') });
 
     useEffect(() => {
@@ -25,22 +26,16 @@ const Tasks = () => {
     }, [location]);
 
     const fetchTasks = async () => {
-        // Try ordering by due_date first
         let { data, error } = await supabase
             .from('tasks')
             .select('*')
             .order('due_date', { ascending: true })
             .order('created_at', { ascending: false });
 
-        // If it fails (likely due to missing column), fallback to original ordering
         if (error && error.message.includes('due_date')) {
-            const fallback = await supabase
-                .from('tasks')
-                .select('*')
-                .order('created_at', { ascending: false });
+            const fallback = await supabase.from('tasks').select('*').order('created_at', { ascending: false });
             data = fallback.data;
         }
-
         if (data) setTasks(data);
     };
 
@@ -57,37 +52,24 @@ const Tasks = () => {
             completed: editingTask ? editingTask.completed : false
         };
 
-        // Only add due_date to payload if column existed in fetch fallback logic check or just try-catch it
-        // To be safe, we'll try to include it and notify user if it fails
         try {
             payload.due_date = formData.due_date ? new Date(formData.due_date).toISOString() : null;
+            let result = editingTask
+                ? await supabase.from('tasks').update(payload).eq('id', editingTask.id)
+                : await supabase.from('tasks').insert([payload]);
 
-            let result;
-            if (editingTask) {
-                result = await supabase.from('tasks').update(payload).eq('id', editingTask.id);
-            } else {
-                result = await supabase.from('tasks').insert([payload]);
+            if (result.error && result.error.message.includes('due_date')) {
+                delete payload.due_date;
+                result = editingTask
+                    ? await supabase.from('tasks').update(payload).eq('id', editingTask.id)
+                    : await supabase.from('tasks').insert([payload]);
             }
-
-            if (result.error) {
-                if (result.error.message.includes('due_date')) {
-                    // Fail gracefully by removing due_date and trying again
-                    delete payload.due_date;
-                    if (editingTask) {
-                        result = await supabase.from('tasks').update(payload).eq('id', editingTask.id);
-                    } else {
-                        result = await supabase.from('tasks').insert([payload]);
-                    }
-                }
-
-                if (result.error) throw result.error;
-            }
-
+            if (result.error) throw result.error;
             fetchTasks();
             closeModal();
         } catch (err) {
-            console.error("Save Error:", err);
-            alert("Erro ao salvar: " + err.message + "\n\nNota: Verifique se você executou os comandos SQL do arquivo migrations.sql no seu painel Supabase.");
+            console.error(err);
+            alert("Erro ao salvar tarefa. Verifique as migrações SQL.");
         }
     };
 
@@ -96,10 +78,11 @@ const Tasks = () => {
         if (!error) fetchTasks();
     };
 
-    const deleteTask = async (id) => {
-        if (!window.confirm('Excluir esta tarefa?')) return;
-        const { error } = await supabase.from('tasks').delete().eq('id', id);
-        if (!error) fetchTasks();
+    const confirmDelete = async () => {
+        if (!deleteId) return;
+        await supabase.from('tasks').delete().eq('id', deleteId);
+        setDeleteId(null);
+        fetchTasks();
     };
 
     const openModal = (task = null) => {
@@ -161,7 +144,7 @@ const Tasks = () => {
                                     </div>
                                 </div>
                                 <div className="task-actions">
-                                    <button onClick={() => deleteTask(task.id)} className="action-circle delete"><Trash2 size={14} /></button>
+                                    <button onClick={() => setDeleteId(task.id)} className="action-circle delete"><Trash2 size={14} /></button>
                                 </div>
                                 <div className="task-category-indicator">{task.category}</div>
                             </div>
@@ -174,7 +157,7 @@ const Tasks = () => {
 
             {isModalOpen && (
                 <div className="modal-overlay" onClick={closeModal}>
-                    <div className="modal-content" onClick={e => e.stopPropagation()}>
+                    <div className="modal-content scrollable-modal" onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
                             <h3 className="modal-title"><Tag size={20} color="var(--color-primary)" /> {editingTask ? 'Editar Tarefa' : 'Nova Tarefa'}</h3>
                             <button className="modal-close-btn" onClick={closeModal}><X size={20} /></button>
@@ -192,30 +175,43 @@ const Tasks = () => {
                                 <input type="date" className="input-field" value={formData.due_date} onChange={e => setFormData({ ...formData, due_date: e.target.value })} />
                             </div>
 
-                            <div style={{ display: 'flex', gap: '1rem' }}>
-                                <div style={{ flex: 1 }}>
+                            <div className="form-grid" style={{ gap: '1rem' }}>
+                                <div>
                                     <label className="form-label">Categoria</label>
                                     <div className="input-container">
                                         <select className="input-field" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
-                                            <option>Trabalho</option>
-                                            <option>Pessoal</option>
-                                            <option>Projetos</option>
+                                            <option>Trabalho</option><option>Pessoal</option><option>Projetos</option>
                                         </select>
                                     </div>
                                 </div>
-                                <div style={{ flex: 1 }}>
+                                <div>
                                     <label className="form-label">Prioridade</label>
                                     <div className="input-container">
                                         <select className="input-field" value={formData.priority} onChange={e => setFormData({ ...formData, priority: e.target.value })}>
-                                            <option value="high">Alta</option>
-                                            <option value="medium">Média</option>
-                                            <option value="low">Baixa</option>
+                                            <option value="high">Alta</option><option value="medium">Média</option><option value="low">Baixa</option>
                                         </select>
                                     </div>
                                 </div>
                             </div>
                             <button type="submit" className="btn btn-primary btn-submit"><Save size={20} /> Salvar</button>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* DELETE MODAL */}
+            {deleteId && (
+                <div className="modal-overlay" style={{ alignItems: 'center' }}>
+                    <div className="modal-content animate-fade-in" style={{ textAlign: 'center', maxWidth: '320px' }}>
+                        <div style={{ width: '64px', height: '64px', background: '#fee2e2', color: '#ef4444', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+                            <AlertCircle size={32} />
+                        </div>
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.5rem' }}>Excluir Tarefa?</h3>
+                        <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '2rem' }}>Esta ação é permanente. Deseja continuar?</p>
+                        <div style={{ display: 'flex', gap: '1rem' }}>
+                            <button className="btn" style={{ flex: 1, background: 'var(--color-bg)' }} onClick={() => setDeleteId(null)}>Cancelar</button>
+                            <button className="btn btn-primary" style={{ flex: 1, background: '#ef4444' }} onClick={confirmDelete}>Excluir</button>
+                        </div>
                     </div>
                 </div>
             )}

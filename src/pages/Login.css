@@ -173,3 +173,19 @@
         0 0 0 3px rgba(37, 99, 235, 0.4),
         0 10px 25px rgba(37, 99, 235, 0.35);
 }
+
+.login-copyright {
+    margin-top: 0.75rem;
+    font-size: 0.7rem;
+    color: rgba(148, 163, 184, 0.8);
+    /* bem sutil */
+    text-align: center;
+    user-select: none;
+}
+
+/* Dark / Glass mode */
+@media (prefers-color-scheme: light) {
+    .login-copyright {
+        color: rgba(203, 213, 225, 0.6);
+    }
+}

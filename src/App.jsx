@@ -7,6 +7,7 @@ import Tasks from './pages/Tasks'
 import Shopping from './pages/Shopping'
 import Planning from './pages/Planning'
 import Finance from './pages/Finance'
+import Profile from './pages/Profile'
 import Login from './pages/Login'
 
 function App() {
@@ -15,7 +16,6 @@ function App() {
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light')
 
   useEffect(() => {
-    // Session check
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       setLoading(false)
@@ -25,7 +25,6 @@ function App() {
       setSession(session)
     })
 
-    // Apply theme on mount
     document.documentElement.setAttribute('data-theme', theme);
     document.body.className = `${theme}-theme`;
 
@@ -56,6 +55,7 @@ function App() {
             <Route path="/shopping" element={<Shopping />} />
             <Route path="/planning" element={<Planning />} />
             <Route path="/finance" element={<Finance />} />
+            <Route path="/profile" element={<Profile toggleTheme={toggleTheme} currentTheme={theme} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Layout>

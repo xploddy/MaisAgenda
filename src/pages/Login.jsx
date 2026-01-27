@@ -83,7 +83,12 @@ const Login = () => {
                     <button onClick={() => setIsSignUp(!isSignUp)} className="link-btn">
                         {isSignUp ? 'Já tem uma conta? Entrar' : 'Não tem conta? Cadastrar'}
                     </button>
+
+                    <div className="login-copyright">
+                        Alexandre S. © 2026
+                    </div>
                 </div>
+
             </div>
         </div>
     );

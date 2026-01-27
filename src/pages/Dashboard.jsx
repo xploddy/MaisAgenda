@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Bell, Plus, CheckSquare, ShoppingBag, Calendar, LogOut, Briefcase, Users, Moon, Sun, X, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Bell, Plus, CheckSquare, ShoppingBag, Calendar, LogOut, Briefcase, Users, Moon, Sun, X, AlertCircle, Menu, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format, isPast, isToday, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -11,6 +11,7 @@ const Dashboard = ({ toggleTheme, currentTheme }) => {
     const [counts, setCounts] = useState({ tasks: 0, shopping: 0, finance: 0 });
     const [userData, setUserData] = useState({ name: '', email: '' });
     const [showNotifications, setShowNotifications] = useState(false);
+    const [showMenu, setShowMenu] = useState(false);
     const [overdueTasks, setOverdueTasks] = useState([]);
     const [todayEvents, setTodayEvents] = useState([]);
 
@@ -37,28 +38,27 @@ const Dashboard = ({ toggleTheme, currentTheme }) => {
 
             setCounts({ tasks: tasksCount || 0, shopping: shopCount || 0, finance: finCount || 0 });
 
-            // Fetch Overdue
-            const { data: overdue } = await supabase.from('tasks').select('*').eq('completed', false);
-            if (overdue) {
-                const filtered = overdue.filter(t => t.due_date && isPast(parseISO(t.due_date)) && !isToday(parseISO(t.due_date)));
+            const { data: tasks } = await supabase.from('tasks').select('*').eq('completed', false);
+            if (tasks) {
+                const filtered = tasks.filter(t => t.due_date && isPast(parseISO(t.due_date)) && !isToday(parseISO(t.due_date)));
                 setOverdueTasks(filtered);
             }
 
-            // Fetch Today's Planning
             const { data: events } = await supabase.from('calendar_events').select('*');
             if (events) {
                 const today = events.filter(e => isToday(parseISO(e.start_time)));
                 setTodayEvents(today);
             }
-
         } catch (e) {
             console.error(e);
         }
     };
 
-    const handleLogout = async () => {
-        await supabase.auth.signOut();
-    };
+    const menuItems = [
+        { label: 'Meu Perfil', icon: User, onClick: () => navigate('/profile') },
+        { label: 'Tema: ' + (currentTheme === 'light' ? 'Escuro' : 'Claro'), icon: currentTheme === 'light' ? Moon : Sun, onClick: () => { toggleTheme(); setShowMenu(false); } },
+        { label: 'Sair', icon: LogOut, onClick: async () => { await supabase.auth.signOut(); navigate('/login'); } },
+    ];
 
     return (
         <div className="dashboard-container animate-fade-in">
@@ -68,15 +68,12 @@ const Dashboard = ({ toggleTheme, currentTheme }) => {
                     <h2 className="capitalize">{userData.name}!</h2>
                 </div>
                 <div className="header-actions">
-                    <button className="icon-action-btn" onClick={toggleTheme}>
-                        {currentTheme === 'light' ? <Moon size={22} color="#6b7280" /> : <Sun size={22} color="#facc15" />}
-                    </button>
                     <button className="icon-action-btn" onClick={() => setShowNotifications(true)}>
                         <Bell size={24} color="#6b7280" />
                         {(overdueTasks.length > 0 || todayEvents.length > 0) && <span className="notification-badge"></span>}
                     </button>
-                    <button onClick={handleLogout} className="icon-action-btn logout">
-                        <LogOut size={20} />
+                    <button className="icon-action-btn" onClick={() => setShowMenu(true)}>
+                        <Menu size={24} color="#6b7280" />
                     </button>
                 </div>
             </header>
@@ -88,20 +85,18 @@ const Dashboard = ({ toggleTheme, currentTheme }) => {
                 <StatWidget color="red" number={counts.finance} label="Financeiro" icon={Calendar} onClick={() => navigate('/finance')} />
             </div>
 
-            {/* Quick Access */}
+            {/* Quick Access - Now with auto-open modal param */}
             <div className="quick-access-strip">
-                <QuickBtn label="Nova Tarefa" icon={Plus} onClick={() => navigate('/tasks')} />
-                <QuickBtn label="Nova Compra" icon={ShoppingBag} onClick={() => navigate('/shopping')} />
-                <QuickBtn label="Novo Evento" icon={Calendar} onClick={() => navigate('/planning')} />
+                <QuickBtn label="Nova Tarefa" icon={Plus} onClick={() => navigate('/tasks?add=true')} />
+                <QuickBtn label="Nova Compra" icon={ShoppingBag} onClick={() => navigate('/shopping?add=true')} />
+                <QuickBtn label="Novo Evento" icon={Calendar} onClick={() => navigate('/planning?add=true')} />
             </div>
 
-            {/* Dynamic Content */}
             <section className="dashboard-section">
                 <div className="section-header">
-                    <h2>Hoje</h2>
+                    <h2>Agenda de Hoje</h2>
                     <button className="see-all-btn" onClick={() => navigate('/planning')}>Ver tudo</button>
                 </div>
-
                 {todayEvents.length === 0 ? (
                     <div className="empty-dashboard-card">
                         <Calendar size={32} />
@@ -114,25 +109,27 @@ const Dashboard = ({ toggleTheme, currentTheme }) => {
                 )}
             </section>
 
-            {/* Alerts / Overdue Tasks */}
-            {overdueTasks.length > 0 && (
-                <section className="dashboard-section">
-                    <div className="section-header">
-                        <h2 className="warning-text">Atrasados</h2>
-                    </div>
-                    {overdueTasks.map(task => (
-                        <div key={task.id} className="alert-card-modern" onClick={() => navigate('/tasks')}>
-                            <AlertCircle size={20} color="#ef4444" />
-                            <div className="alert-info">
-                                <div className="alert-title">{task.title}</div>
-                                <div className="alert-sub">Tarefa com prazo vencido!</div>
-                            </div>
+            {/* Hamburger Menu Overlay */}
+            {showMenu && (
+                <div className="modal-overlay" onClick={() => setShowMenu(false)} style={{ alignItems: 'flex-start', justifyContent: 'flex-end', padding: 0 }}>
+                    <div className="modal-content animate-slide-right" onClick={e => e.stopPropagation()} style={{ width: '280px', height: '100%', borderRadius: 0, padding: '2rem 1.5rem' }}>
+                        <div className="modal-header">
+                            <h3 className="modal-title">Menu</h3>
+                            <button className="modal-close-btn" onClick={() => setShowMenu(false)}><X size={20} /></button>
                         </div>
-                    ))}
-                </section>
+                        <div className="menu-list" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
+                            {menuItems.map((item, idx) => (
+                                <button key={idx} onClick={item.onClick} className="btn" style={{ justifyContent: 'flex-start', background: 'var(--color-bg)', color: 'var(--color-text-main)', width: '100%', gap: '1rem' }}>
+                                    <item.icon size={20} />
+                                    {item.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
             )}
 
-            {/* Notifications Modal Overlay */}
+            {/* Notifications Overlay */}
             {showNotifications && (
                 <div className="modal-overlay" onClick={() => setShowNotifications(false)}>
                     <div className="modal-content" onClick={e => e.stopPropagation()}>
@@ -154,7 +151,7 @@ const Dashboard = ({ toggleTheme, currentTheme }) => {
                                 </div>
                             )}
                             {overdueTasks.length === 0 && todayEvents.length === 0 && (
-                                <div className="empty-state">Tudo em dia por aqui! ✨</div>
+                                <div className="empty-state">Tudo em dia! ✨</div>
                             )}
                         </div>
                     </div>

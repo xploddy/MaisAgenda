@@ -1,189 +1,35 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+/* Existing styles... */
 
-:root {
-  --color-primary: #1d4ed8;
-  --color-success: #10b981;
-  --color-danger: #ef4444;
-  --color-warning: #f59e0b;
-  --color-bg: #eff3f6;
-  --color-surface: #ffffff;
-  --color-text-main: #111827;
-  --color-text-muted: #6b7280;
-  --color-border: #e2e8f0;
-  --color-input-bg: #f9fafb;
-}
-
-[data-theme='dark'],
-.dark-theme {
-  --color-bg: #0f172a;
-  --color-surface: #1e293b;
-  --color-text-main: #f3f4f6;
-  --color-text-muted: #9ca3af;
-  --color-border: #334155;
-  --color-input-bg: #0f172a;
-}
-
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  -webkit-tap-highlight-color: transparent;
-}
-
-body {
-  font-family: 'Inter', sans-serif;
-  background-color: var(--color-bg);
-  color: var(--color-text-main);
-  transition: background-color 0.3s, color 0.3s;
-}
-
-.container {
-  max-width: 480px;
-  margin: 0 auto;
-  padding: 0 1.25rem 100px;
-  min-height: 100vh;
-}
-
-/* STANDARD MODERN MODAL SYSTEM */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.7);
-  backdrop-filter: blur(10px);
-  z-index: 3000;
-  display: flex;
-  align-items: flex-end;
-  /* Mobile friendly: slide from bottom */
-  justify-content: center;
-}
-
-@media (min-width: 480px) {
-  .modal-overlay {
-    align-items: center;
-  }
-}
-
-.modal-content {
-  background: var(--color-surface);
-  width: 100%;
-  max-width: 440px;
-  border-radius: 2rem 2rem 0 0;
-  /* Bottom sheet style for mobile */
-  padding: 2.5rem 2rem;
-  box-shadow: 0 -10px 25px rgba(0, 0, 0, 0.1);
-  border: 1px solid var(--color-border);
-  color: var(--color-text-main);
-  animation: modalSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@media (min-width: 480px) {
-  .modal-content {
-    border-radius: 2rem;
-    animation: modalFadeIn 0.3s ease;
-  }
-}
-
-@keyframes modalSlideUp {
+@keyframes slideInRight {
   from {
-    transform: translateY(100%);
+    transform: translateX(100%);
   }
 
   to {
-    transform: translateY(0);
+    transform: translateX(0);
   }
 }
 
-@keyframes modalFadeIn {
-  from {
-    transform: scale(0.95);
-    opacity: 0;
-  }
-
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
+.animate-slide-right {
+  animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-}
-
-.modal-title {
-  font-size: 1.25rem;
-  font-weight: 800;
-  letter-spacing: -0.025em;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.modal-close-btn {
-  background: var(--color-bg);
-  border: none;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-text-muted);
-  cursor: pointer;
-}
-
-/* FORM ELEMENTS */
-.form-label {
-  font-size: 0.8rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--color-text-muted);
-  margin-bottom: 0.5rem;
-  display: block;
-}
-
-.input-container {
-  background: var(--color-input-bg);
-  border: 2px solid var(--color-border);
-  border-radius: 1.25rem;
-  padding: 0 1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
+.menu-list button {
   transition: all 0.2s;
-  margin-bottom: 1.5rem;
 }
 
-.input-container:focus-within {
-  border-color: var(--color-primary);
-  background: var(--color-surface);
-  box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.1);
+.menu-list button:active {
+  transform: scale(0.97);
 }
 
-.input-field {
-  flex: 1;
-  border: none;
-  background: transparent;
-  padding: 1rem 0;
-  font-family: inherit;
-  font-size: 1rem;
-  font-weight: 500;
-  color: var(--color-text-main);
-  outline: none;
+/* Ensure no double FAB on pages */
+.tasks-page .tasks-header .icon-btn-ghost:last-child,
+.shopping-page .shopping-header .icon-btn-ghost:last-child {
+  display: none;
+  /* Already removed from JSX, but just in case */
 }
 
-.btn-submit {
-  width: 100%;
-  padding: 1.125rem;
-  border-radius: 1.25rem;
-  font-size: 1rem;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  box-shadow: 0 10px 15px -3px rgba(29, 78, 216, 0.3);
+/* Profiles and other common containers */
+.profile-page {
+  padding-bottom: 120px;
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, X, Check, ChevronLeft, Calendar, Save, ShoppingBag, Tag } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { format, parseISO, isPast, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '../supabaseClient';
@@ -9,15 +9,22 @@ import './Tasks.css';
 
 const Shopping = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [items, setItems] = useState([]);
     const [activeTab, setActiveTab] = useState('Mercado');
+    const [isByDate, setIsByDate] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
     const [formData, setFormData] = useState({ name: '', category: 'Mercado', due_date: format(new Date(), 'yyyy-MM-dd') });
 
     useEffect(() => {
         fetchItems();
-    }, []);
+        const params = new URLSearchParams(location.search);
+        if (params.get('add') === 'true') {
+            openModal();
+            navigate('/shopping', { replace: true });
+        }
+    }, [location]);
 
     const fetchItems = async () => {
         const { data, error } = await supabase
@@ -26,6 +33,7 @@ const Shopping = () => {
             .order('due_date', { ascending: true })
             .order('created_at', { ascending: false });
         if (data) setItems(data);
+        if (error) console.error("Fetch Error:", error);
     };
 
     const handleSave = async (e) => {
@@ -34,29 +42,38 @@ const Shopping = () => {
         if (!user) return;
 
         const payload = {
-            ...formData,
+            name: formData.name,
+            category: formData.category,
+            due_date: formData.due_date ? new Date(formData.due_date).toISOString() : null,
             user_id: user.id,
             bought: editingItem ? editingItem.bought : false
         };
 
+        let result;
         if (editingItem) {
-            await supabase.from('shopping_items').update(payload).eq('id', editingItem.id);
+            result = await supabase.from('shopping_items').update(payload).eq('id', editingItem.id);
         } else {
-            await supabase.from('shopping_items').insert([payload]);
+            result = await supabase.from('shopping_items').insert([payload]);
         }
-        fetchItems();
-        closeModal();
+
+        if (result.error) {
+            console.error("Save Error:", result.error);
+            alert("Erro ao salvar: " + result.error.message);
+        } else {
+            fetchItems();
+            closeModal();
+        }
     };
 
     const toggleItem = async (item) => {
-        await supabase.from('shopping_items').update({ bought: !item.bought }).eq('id', item.id);
-        fetchItems();
+        const { error } = await supabase.from('shopping_items').update({ bought: !item.bought }).eq('id', item.id);
+        if (!error) fetchItems();
     };
 
     const deleteItem = async (id) => {
         if (!window.confirm('Excluir item?')) return;
-        await supabase.from('shopping_items').delete().eq('id', id);
-        fetchItems();
+        const { error } = await supabase.from('shopping_items').delete().eq('id', id);
+        if (!error) fetchItems();
     };
 
     const openModal = (item = null) => {
@@ -84,18 +101,12 @@ const Shopping = () => {
             <header className="shopping-header">
                 <button className="icon-btn-ghost" onClick={() => navigate('/')}><ChevronLeft size={24} /></button>
                 <h1>Minhas Compras</h1>
-                <button className="icon-btn-ghost" onClick={() => openModal()}><Plus size={24} color="var(--color-primary)" /></button>
+                <div style={{ width: 44 }}></div>
             </header>
 
             <div className="sub-tabs-container">
                 {tabs.map(tab => (
-                    <button
-                        key={tab}
-                        className={`sub-tab-btn ${activeTab === tab ? 'active' : ''}`}
-                        onClick={() => setActiveTab(tab)}
-                    >
-                        {tab}
-                    </button>
+                    <button key={tab} className={`sub-tab-btn ${activeTab === tab ? 'active' : ''}`} onClick={() => setActiveTab(tab)}>{tab}</button>
                 ))}
             </div>
 
@@ -125,6 +136,7 @@ const Shopping = () => {
                                 <div className="task-actions">
                                     <button onClick={() => deleteItem(item.id)} className="action-circle delete"><Trash2 size={14} /></button>
                                 </div>
+                                <div className="task-category-indicator">{item.category}</div>
                             </div>
                         );
                     })
@@ -141,13 +153,13 @@ const Shopping = () => {
                             <button className="modal-close-btn" onClick={closeModal}><X size={20} /></button>
                         </div>
                         <form onSubmit={handleSave}>
-                            <label className="form-label">O que você precisa comprar?</label>
+                            <label className="form-label">Descrição do Item</label>
                             <div className="input-container">
                                 <Plus size={20} color="var(--color-text-muted)" />
-                                <input autoFocus type="text" className="input-field" placeholder="Ex: Arroz" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required />
+                                <input autoFocus type="text" className="input-field" placeholder="Ex: Café em pó" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required />
                             </div>
 
-                            <label className="form-label">Dia planejado para compra</label>
+                            <label className="form-label">Data Prevista</label>
                             <div className="input-container">
                                 <Calendar size={20} color="var(--color-text-muted)" />
                                 <input type="date" className="input-field" value={formData.due_date} onChange={e => setFormData({ ...formData, due_date: e.target.value })} />
@@ -161,9 +173,7 @@ const Shopping = () => {
                                 </select>
                             </div>
 
-                            <button type="submit" className="btn btn-primary btn-submit">
-                                <Save size={20} /> {editingItem ? 'Salvar Alterações' : 'Adicionar Item'}
-                            </button>
+                            <button type="submit" className="btn btn-primary btn-submit"><Save size={20} /> Salvar</button>
                         </form>
                     </div>
                 </div>

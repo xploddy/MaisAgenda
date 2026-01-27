@@ -10,8 +10,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'SmartOrganizer',
-        short_name: 'SmartOrg',
+        name: '+Agenda',
+        short_name: '+Agenda',
         description: 'Complete personal and professional organization tool',
         theme_color: '#ffffff',
         background_color: '#f8fafc',

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Check, ChevronLeft, Calendar, X, Trash2, Edit2, Clock, Save, Tag } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Plus, Check, ChevronLeft, Calendar, X, Trash2, Edit2, Save, Tag } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { format, parseISO, isPast, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '../supabaseClient';
@@ -8,15 +8,24 @@ import './Tasks.css';
 
 const Tasks = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [tasks, setTasks] = useState([]);
     const [activeTab, setActiveTab] = useState('Todos');
+    const [isByDate, setIsByDate] = useState(true); // Default to date view
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTask, setEditingTask] = useState(null);
     const [formData, setFormData] = useState({ title: '', category: 'Trabalho', priority: 'medium', due_date: format(new Date(), 'yyyy-MM-dd') });
 
     useEffect(() => {
         fetchTasks();
-    }, []);
+        // Check for quick-add param from dashboard
+        const params = new URLSearchParams(location.search);
+        if (params.get('add') === 'true') {
+            openModal();
+            // Clean up URL
+            navigate('/tasks', { replace: true });
+        }
+    }, [location]);
 
     const fetchTasks = async () => {
         const { data, error } = await supabase
@@ -25,6 +34,7 @@ const Tasks = () => {
             .order('due_date', { ascending: true })
             .order('created_at', { ascending: false });
         if (data) setTasks(data);
+        if (error) console.error("Fetch Error:", error);
     };
 
     const handleSave = async (e) => {
@@ -33,29 +43,39 @@ const Tasks = () => {
         if (!user) return;
 
         const payload = {
-            ...formData,
+            title: formData.title,
+            category: formData.category,
+            priority: formData.priority,
+            due_date: formData.due_date ? new Date(formData.due_date).toISOString() : null,
             user_id: user.id,
             completed: editingTask ? editingTask.completed : false
         };
 
+        let result;
         if (editingTask) {
-            await supabase.from('tasks').update(payload).eq('id', editingTask.id);
+            result = await supabase.from('tasks').update(payload).eq('id', editingTask.id);
         } else {
-            await supabase.from('tasks').insert([payload]);
+            result = await supabase.from('tasks').insert([payload]);
         }
-        fetchTasks();
-        closeModal();
+
+        if (result.error) {
+            console.error("Save Error:", result.error);
+            alert("Erro ao salvar tarefa: " + result.error.message);
+        } else {
+            fetchTasks();
+            closeModal();
+        }
     };
 
     const toggleTask = async (task) => {
-        await supabase.from('tasks').update({ completed: !task.completed }).eq('id', task.id);
-        fetchTasks();
+        const { error } = await supabase.from('tasks').update({ completed: !task.completed }).eq('id', task.id);
+        if (!error) fetchTasks();
     };
 
     const deleteTask = async (id) => {
         if (!window.confirm('Excluir esta tarefa?')) return;
-        await supabase.from('tasks').delete().eq('id', id);
-        fetchTasks();
+        const { error } = await supabase.from('tasks').delete().eq('id', id);
+        if (!error) fetchTasks();
     };
 
     const openModal = (task = null) => {
@@ -83,18 +103,12 @@ const Tasks = () => {
             <header className="tasks-header">
                 <button className="icon-btn-ghost" onClick={() => navigate('/')}><ChevronLeft size={24} /></button>
                 <h1>Minhas Tarefas</h1>
-                <button className="icon-btn-ghost" onClick={() => openModal()}><Plus size={24} color="var(--color-primary)" /></button>
+                <div style={{ width: 44 }}></div>
             </header>
 
             <div className="sub-tabs-container">
                 {['Todos', 'Trabalho', 'Pessoal', 'Projetos'].map(tab => (
-                    <button
-                        key={tab}
-                        className={`sub-tab-btn ${activeTab === tab ? 'active' : ''}`}
-                        onClick={() => setActiveTab(tab)}
-                    >
-                        {tab}
-                    </button>
+                    <button key={tab} className={`sub-tab-btn ${activeTab === tab ? 'active' : ''}`} onClick={() => setActiveTab(tab)}>{tab}</button>
                 ))}
             </div>
 
@@ -119,9 +133,7 @@ const Tasks = () => {
                                                 <Calendar size={12} /> {format(dateObj, "dd 'de' MMM", { locale: ptBR })}
                                             </span>
                                         )}
-                                        <span className={`prio-tag ${task.priority}`}>
-                                            {task.priority === 'high' ? 'Alta' : task.priority === 'medium' ? 'Média' : 'Baixa'}
-                                        </span>
+                                        <span className={`prio-tag ${task.priority}`}>{task.priority}</span>
                                     </div>
                                 </div>
                                 <div className="task-actions">
@@ -144,13 +156,13 @@ const Tasks = () => {
                             <button className="modal-close-btn" onClick={closeModal}><X size={20} /></button>
                         </div>
                         <form onSubmit={handleSave}>
-                            <label className="form-label">O que precisa ser feito?</label>
+                            <label className="form-label">Descrição</label>
                             <div className="input-container">
                                 <Plus size={20} color="var(--color-text-muted)" />
-                                <input autoFocus type="text" className="input-field" placeholder="Ex: Comprar leite" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} required />
+                                <input autoFocus type="text" className="input-field" placeholder="Ex: Finalizar relatório" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} required />
                             </div>
 
-                            <label className="form-label">Prazo para conclusão</label>
+                            <label className="form-label">Data de Entrega</label>
                             <div className="input-container">
                                 <Calendar size={20} color="var(--color-text-muted)" />
                                 <input type="date" className="input-field" value={formData.due_date} onChange={e => setFormData({ ...formData, due_date: e.target.value })} />
@@ -168,7 +180,7 @@ const Tasks = () => {
                                     </div>
                                 </div>
                                 <div style={{ flex: 1 }}>
-                                    <label className="form-label">Urgência</label>
+                                    <label className="form-label">Prioridade</label>
                                     <div className="input-container">
                                         <select className="input-field" value={formData.priority} onChange={e => setFormData({ ...formData, priority: e.target.value })}>
                                             <option value="high">Alta</option>
@@ -178,10 +190,7 @@ const Tasks = () => {
                                     </div>
                                 </div>
                             </div>
-
-                            <button type="submit" className="btn btn-primary btn-submit">
-                                <Save size={20} /> {editingTask ? 'Salvar Alterações' : 'Criar Tarefa'}
-                            </button>
+                            <button type="submit" className="btn btn-primary btn-submit"><Save size={20} /> Salvar</button>
                         </form>
                     </div>
                 </div>

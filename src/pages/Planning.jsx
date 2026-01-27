@@ -1,24 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Clock, Plus, X, Trash2, Calendar as CalendarIcon, Briefcase, Users, Heart, Save } from 'lucide-react';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay, parseISO } from 'date-fns';
+import { ChevronLeft, ChevronRight, Clock, Plus, X, Trash2, Edit2, Calendar as CalendarIcon, Briefcase, Users, Heart, Save, Check } from 'lucide-react';
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay, parseISO, setMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import './Planning.css';
 
 const Planning = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [events, setEvents] = useState([]);
     const [allEvents, setAllEvents] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
     const [editingEvent, setEditingEvent] = useState(null);
     const [formData, setFormData] = useState({ title: '', time: '09:00', type: 'work' });
 
     useEffect(() => {
         fetchEvents();
-    }, [selectedDate, currentMonth]);
+        const params = new URLSearchParams(location.search);
+        if (params.get('add') === 'true') {
+            openModal();
+            navigate('/planning', { replace: true });
+        }
+    }, [selectedDate, currentMonth, location]);
 
     const fetchEvents = async () => {
         const { data, error } = await supabase
@@ -53,7 +60,6 @@ const Planning = () => {
         } else {
             await supabase.from('calendar_events').insert([payload]);
         }
-
         fetchEvents();
         closeModal();
     };
@@ -81,7 +87,14 @@ const Planning = () => {
 
     const closeModal = () => { setIsModalOpen(false); setEditingEvent(null); };
 
-    // Calendar logic
+    // Month picker
+    const months = Array.from({ length: 12 }, (_, i) => i);
+    const handleMonthSelect = (m) => {
+        const newDate = setMonth(currentMonth, m);
+        setCurrentMonth(newDate);
+        setIsMonthPickerOpen(false);
+    };
+
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(monthStart);
     const startDate = startOfWeek(monthStart);
@@ -96,11 +109,7 @@ const Planning = () => {
             const cloneDay = day;
             const hasEvent = allEvents.some(e => isSameDay(parseISO(e.start_time), cloneDay));
             days.push(
-                <div
-                    key={day}
-                    className={`calendar-day ${!isSameMonth(day, monthStart) ? "other-month" : ""} ${isSameDay(day, selectedDate) ? "selected" : ""} ${isSameDay(day, new Date()) ? "today" : ""}`}
-                    onClick={() => setSelectedDate(cloneDay)}
-                >
+                <div key={day} className={`calendar-day ${!isSameMonth(day, monthStart) ? "other-month" : ""} ${isSameDay(day, selectedDate) ? "selected" : ""} ${isSameDay(day, new Date()) ? "today" : ""}`} onClick={() => setSelectedDate(cloneDay)}>
                     <span>{format(day, "d")}</span>
                     {hasEvent && !isSameDay(day, selectedDate) && <div className="event-dot"></div>}
                 </div>
@@ -116,15 +125,28 @@ const Planning = () => {
             <header className="planning-header">
                 <button className="icon-btn-ghost" onClick={() => navigate('/')}><ChevronLeft size={24} /></button>
                 <h1>Planejamento</h1>
-                <button className="icon-btn-ghost"><CalendarIcon size={24} /></button>
+                <div style={{ width: 44 }}></div>
             </header>
 
             <div className="calendar-card">
                 <div className="calendar-nav">
                     <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}><ChevronLeft size={20} /></button>
-                    <span className="month-label">{format(currentMonth, 'MMMM yyyy', { locale: ptBR })}</span>
+                    <span className="month-label clickable" onClick={() => setIsMonthPickerOpen(true)}>
+                        {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
+                    </span>
                     <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}><ChevronRight size={20} /></button>
                 </div>
+                {isMonthPickerOpen && (
+                    <div className="month-picker-overlay animate-fade-in">
+                        <div className="month-grid">
+                            {months.map(m => (
+                                <button key={m} className={`month-btn ${currentMonth.getMonth() === m ? 'active' : ''}`} onClick={() => handleMonthSelect(m)}>
+                                    {format(setMonth(new Date(), m), 'MMM', { locale: ptBR })}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
                 <div className="calendar-week-names">
                     {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'].map(d => <div key={d}>{d}</div>)}
                 </div>
@@ -132,16 +154,10 @@ const Planning = () => {
             </div>
 
             <section className="agenda-section">
-                <div className="section-header">
-                    <h2>Agenda de {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}</h2>
-                    <button className="add-event-compact" onClick={() => openModal()}><Plus size={20} /></button>
-                </div>
-
+                <h2>Agenda de {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}</h2>
                 <div className="event-list">
-                    {events.length === 0 ? (
-                        <div className="empty-state">Nenhum agendamento para hoje.</div>
-                    ) : (
-                        events.map((evt) => (
+                    {events.length === 0 ? <div className="empty-state">Nenhum agendamento.</div> :
+                        events.map(evt => (
                             <div key={evt.id} className="event-item-modern">
                                 <div className={`event-icon ${evt.type}`}>
                                     {evt.type === 'work' ? <Briefcase size={16} /> : evt.type === 'personal' ? <Users size={16} /> : <Heart size={16} />}
@@ -153,7 +169,7 @@ const Planning = () => {
                                 <button className="delete-btn" onClick={() => deleteEvent(evt.id)}><Trash2 size={16} /></button>
                             </div>
                         ))
-                    )}
+                    }
                 </div>
             </section>
 
@@ -167,35 +183,25 @@ const Planning = () => {
                             <button className="modal-close-btn" onClick={closeModal}><X size={20} /></button>
                         </div>
                         <form onSubmit={handleSave}>
-                            <label className="form-label">O que você vai fazer?</label>
+                            <label className="form-label">Descrição</label>
                             <div className="input-container">
-                                <Briefcase size={20} color="var(--color-text-muted)" />
-                                <input autoFocus type="text" className="input-field" placeholder="Ex: Reunião de equipe" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} required />
+                                <Plus size={20} color="var(--color-text-muted)" /><input autoFocus type="text" className="input-field" placeholder="Ex: Academia" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} required />
                             </div>
-
                             <div style={{ display: 'flex', gap: '1rem' }}>
                                 <div style={{ flex: 1 }}>
                                     <label className="form-label">Horário</label>
-                                    <div className="input-container">
-                                        <Clock size={20} color="var(--color-text-muted)" />
-                                        <input type="time" className="input-field" value={formData.time} onChange={e => setFormData({ ...formData, time: e.target.value })} />
-                                    </div>
+                                    <div className="input-container"><Clock size={20} color="var(--color-text-muted)" /><input type="time" className="input-field" value={formData.time} onChange={e => setFormData({ ...formData, time: e.target.value })} /></div>
                                 </div>
                                 <div style={{ flex: 1 }}>
                                     <label className="form-label">Tipo</label>
                                     <div className="input-container">
                                         <select className="input-field" value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value })}>
-                                            <option value="work">Trabalho</option>
-                                            <option value="personal">Pessoal</option>
-                                            <option value="health">Saúde</option>
+                                            <option value="work">Trabalho</option><option value="personal">Pessoal</option><option value="health">Saúde</option>
                                         </select>
                                     </div>
                                 </div>
                             </div>
-
-                            <button type="submit" className="btn btn-primary btn-submit">
-                                <Save size={20} /> {editingEvent ? 'Salvar Alterações' : 'Agendar'}
-                            </button>
+                            <button type="submit" className="btn btn-primary btn-submit"><Save size={20} /> Salvar</button>
                         </form>
                     </div>
                 </div>

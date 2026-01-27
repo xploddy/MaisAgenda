@@ -1,3 +1,4 @@
+/* Existing styles... */
 .planning-page {
     padding-bottom: 120px;
 }
@@ -7,7 +8,6 @@
     justify-content: space-between;
     align-items: center;
     padding: 1.5rem 0;
-    margin-bottom: 0.5rem;
 }
 
 .planning-header h1 {
@@ -16,16 +16,20 @@
     letter-spacing: -0.025em;
 }
 
-.icon-btn-ghost {
-    background: transparent;
-    border: none;
-    color: var(--color-text-muted);
-    width: 44px;
-    height: 44px;
+.month-label.clickable {
+    cursor: pointer;
+    background: var(--color-bg);
+    padding: 0.4rem 1rem;
+    border-radius: 1rem;
+    transition: all 0.2s;
 }
 
-/* CALENDAR CARD */
+.month-label.clickable:hover {
+    background: var(--color-border);
+}
+
 .calendar-card {
+    position: relative;
     background: var(--color-surface);
     border-radius: 2rem;
     padding: 1.5rem;
@@ -34,29 +38,47 @@
     margin-bottom: 2rem;
 }
 
-.calendar-nav {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1.5rem;
-}
-
-.calendar-nav button {
-    background: var(--color-bg);
-    border: none;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
+/* MONTH PICKER */
+.month-picker-overlay {
+    position: absolute;
+    inset: 0;
+    background: var(--color-surface);
+    z-index: 10;
+    border-radius: 2rem;
+    padding: 1rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--color-text-main);
 }
 
-.month-label {
-    font-weight: 800;
+.month-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    width: 100%;
+}
+
+.month-btn {
+    padding: 0.75rem 0.5rem;
+    border-radius: 1rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg);
+    color: var(--color-text-main);
+    font-size: 0.8rem;
+    font-weight: 700;
     text-transform: capitalize;
-    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.month-btn:hover {
+    background: var(--color-border);
+}
+
+.month-btn.active {
+    background: var(--color-primary);
+    color: white;
+    border-color: var(--color-primary);
 }
 
 .calendar-week-names {
@@ -88,7 +110,6 @@
     border-radius: 0.75rem;
     cursor: pointer;
     position: relative;
-    transition: all 0.2s;
 }
 
 .calendar-day.other-month {
@@ -114,31 +135,7 @@
     bottom: 6px;
 }
 
-/* AGENDA SECTION */
-.agenda-section .section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1.25rem;
-}
-
-.agenda-section h2 {
-    font-size: 1rem;
-    font-weight: 800;
-}
-
-.add-event-compact {
-    background: var(--color-primary);
-    color: white;
-    border: none;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
+/* EVENT ITEMS */
 .event-item-modern {
     background: var(--color-surface);
     border-radius: 1.25rem;
@@ -182,15 +179,11 @@
 .event-title {
     font-size: 0.9rem;
     font-weight: 700;
-    margin-bottom: 0.2rem;
 }
 
 .event-time {
     font-size: 0.75rem;
     color: var(--color-text-muted);
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
 }
 
 .delete-btn {
@@ -198,7 +191,6 @@
     border: none;
     color: var(--color-text-muted);
     opacity: 0.4;
-    padding: 0.5rem;
 }
 
 .delete-btn:hover {
@@ -206,9 +198,21 @@
     color: var(--color-danger);
 }
 
-.empty-state {
-    text-align: center;
-    padding: 3rem 0;
-    color: var(--color-text-muted);
-    font-size: 0.85rem;
+.calendar-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.calendar-nav button {
+    background: var(--color-bg);
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-main);
 }

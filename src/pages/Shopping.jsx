@@ -12,7 +12,6 @@ const Shopping = () => {
     const location = useLocation();
     const [items, setItems] = useState([]);
     const [activeTab, setActiveTab] = useState('Mercado');
-    const [isByDate, setIsByDate] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
     const [formData, setFormData] = useState({ name: '', category: 'Mercado', due_date: format(new Date(), 'yyyy-MM-dd') });
@@ -27,13 +26,21 @@ const Shopping = () => {
     }, [location]);
 
     const fetchItems = async () => {
-        const { data, error } = await supabase
+        let { data, error } = await supabase
             .from('shopping_items')
             .select('*')
             .order('due_date', { ascending: true })
             .order('created_at', { ascending: false });
+
+        if (error && error.message.includes('due_date')) {
+            const fallback = await supabase
+                .from('shopping_items')
+                .select('*')
+                .order('created_at', { ascending: false });
+            data = fallback.data;
+        }
+
         if (data) setItems(data);
-        if (error) console.error("Fetch Error:", error);
     };
 
     const handleSave = async (e) => {
@@ -44,24 +51,37 @@ const Shopping = () => {
         const payload = {
             name: formData.name,
             category: formData.category,
-            due_date: formData.due_date ? new Date(formData.due_date).toISOString() : null,
             user_id: user.id,
             bought: editingItem ? editingItem.bought : false
         };
 
-        let result;
-        if (editingItem) {
-            result = await supabase.from('shopping_items').update(payload).eq('id', editingItem.id);
-        } else {
-            result = await supabase.from('shopping_items').insert([payload]);
-        }
+        try {
+            payload.due_date = formData.due_date ? new Date(formData.due_date).toISOString() : null;
 
-        if (result.error) {
-            console.error("Save Error:", result.error);
-            alert("Erro ao salvar: " + result.error.message);
-        } else {
+            let result;
+            if (editingItem) {
+                result = await supabase.from('shopping_items').update(payload).eq('id', editingItem.id);
+            } else {
+                result = await supabase.from('shopping_items').insert([payload]);
+            }
+
+            if (result.error) {
+                if (result.error.message.includes('due_date')) {
+                    delete payload.due_date;
+                    if (editingItem) {
+                        result = await supabase.from('shopping_items').update(payload).eq('id', editingItem.id);
+                    } else {
+                        result = await supabase.from('shopping_items').insert([payload]);
+                    }
+                }
+                if (result.error) throw result.error;
+            }
+
             fetchItems();
             closeModal();
+        } catch (err) {
+            console.error("Save Error:", err);
+            alert("Erro ao salvar: " + err.message + "\n\nNota: Verifique se você executou os comandos SQL do arquivo migrations.sql no seu painel Supabase.");
         }
     };
 
@@ -156,7 +176,7 @@ const Shopping = () => {
                             <label className="form-label">Descrição do Item</label>
                             <div className="input-container">
                                 <Plus size={20} color="var(--color-text-muted)" />
-                                <input autoFocus type="text" className="input-field" placeholder="Ex: Café em pó" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required />
+                                <input autoFocus type="text" className="input-field" placeholder="Ex: Arroz" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required />
                             </div>
 
                             <label className="form-label">Data Prevista</label>

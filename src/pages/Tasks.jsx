@@ -11,30 +11,37 @@ const Tasks = () => {
     const location = useLocation();
     const [tasks, setTasks] = useState([]);
     const [activeTab, setActiveTab] = useState('Todos');
-    const [isByDate, setIsByDate] = useState(true); // Default to date view
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTask, setEditingTask] = useState(null);
     const [formData, setFormData] = useState({ title: '', category: 'Trabalho', priority: 'medium', due_date: format(new Date(), 'yyyy-MM-dd') });
 
     useEffect(() => {
         fetchTasks();
-        // Check for quick-add param from dashboard
         const params = new URLSearchParams(location.search);
         if (params.get('add') === 'true') {
             openModal();
-            // Clean up URL
             navigate('/tasks', { replace: true });
         }
     }, [location]);
 
     const fetchTasks = async () => {
-        const { data, error } = await supabase
+        // Try ordering by due_date first
+        let { data, error } = await supabase
             .from('tasks')
             .select('*')
             .order('due_date', { ascending: true })
             .order('created_at', { ascending: false });
+
+        // If it fails (likely due to missing column), fallback to original ordering
+        if (error && error.message.includes('due_date')) {
+            const fallback = await supabase
+                .from('tasks')
+                .select('*')
+                .order('created_at', { ascending: false });
+            data = fallback.data;
+        }
+
         if (data) setTasks(data);
-        if (error) console.error("Fetch Error:", error);
     };
 
     const handleSave = async (e) => {
@@ -46,24 +53,41 @@ const Tasks = () => {
             title: formData.title,
             category: formData.category,
             priority: formData.priority,
-            due_date: formData.due_date ? new Date(formData.due_date).toISOString() : null,
             user_id: user.id,
             completed: editingTask ? editingTask.completed : false
         };
 
-        let result;
-        if (editingTask) {
-            result = await supabase.from('tasks').update(payload).eq('id', editingTask.id);
-        } else {
-            result = await supabase.from('tasks').insert([payload]);
-        }
+        // Only add due_date to payload if column existed in fetch fallback logic check or just try-catch it
+        // To be safe, we'll try to include it and notify user if it fails
+        try {
+            payload.due_date = formData.due_date ? new Date(formData.due_date).toISOString() : null;
 
-        if (result.error) {
-            console.error("Save Error:", result.error);
-            alert("Erro ao salvar tarefa: " + result.error.message);
-        } else {
+            let result;
+            if (editingTask) {
+                result = await supabase.from('tasks').update(payload).eq('id', editingTask.id);
+            } else {
+                result = await supabase.from('tasks').insert([payload]);
+            }
+
+            if (result.error) {
+                if (result.error.message.includes('due_date')) {
+                    // Fail gracefully by removing due_date and trying again
+                    delete payload.due_date;
+                    if (editingTask) {
+                        result = await supabase.from('tasks').update(payload).eq('id', editingTask.id);
+                    } else {
+                        result = await supabase.from('tasks').insert([payload]);
+                    }
+                }
+
+                if (result.error) throw result.error;
+            }
+
             fetchTasks();
             closeModal();
+        } catch (err) {
+            console.error("Save Error:", err);
+            alert("Erro ao salvar: " + err.message + "\n\nNota: Verifique se você executou os comandos SQL do arquivo migrations.sql no seu painel Supabase.");
         }
     };
 

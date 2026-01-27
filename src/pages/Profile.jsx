@@ -56,7 +56,7 @@ const Profile = ({ toggleTheme, currentTheme }) => {
             </header>
 
             <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
-                <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'var(--color-bg)', margin: '0 auto 1rem', display: 'flex', alignItems: 'center', justify-content: 'center' }}>
+                <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'var(--color-bg)', margin: '0 auto 1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <User size={40} color="var(--color-primary)" />
                 </div>
                 <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>{userData.name}</h2>
@@ -69,7 +69,7 @@ const Profile = ({ toggleTheme, currentTheme }) => {
                     <label className="form-label">Seu Apelido</label>
                     <div className="input-container">
                         <User size={18} color="var(--color-text-muted)" />
-                        <input className="input-field" value={userData.name} onChange={e => setUserData({...userData, name: e.target.value})} />
+                        <input className="input-field" value={userData.name} onChange={e => setUserData({ ...userData, name: e.target.value })} />
                     </div>
                     <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
                         {loading ? 'Salvando...' : 'Salvar Apelido'}
@@ -93,15 +93,15 @@ const Profile = ({ toggleTheme, currentTheme }) => {
                 <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                     <button onClick={toggleTheme} className="btn" style={{ justifyContent: 'space-between', background: 'var(--color-bg)', color: 'var(--color-text-main)' }}>
                         <div className="flex gap-2 items-center">
-                            {currentTheme === 'light' ? <Moon size={18}/> : <Sun size={18}/>}
+                            {currentTheme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
                             {currentTheme === 'light' ? 'Modo Escuro' : 'Modo Claro'}
                         </div>
                     </button>
                     <button className="btn" style={{ justifyContent: 'space-between', background: 'var(--color-bg)', color: 'var(--color-text-main)' }}>
-                        <div className="flex gap-2 items-center"><Download size={18}/> Exportar Tarefas</div>
+                        <div className="flex gap-2 items-center"><Download size={18} /> Exportar Tarefas</div>
                     </button>
                     <button className="btn" style={{ justifyContent: 'space-between', background: 'var(--color-bg)', color: 'var(--color-text-main)' }}>
-                        <div className="flex gap-2 items-center"><Share2 size={18}/> Compartilhar Planos</div>
+                        <div className="flex gap-2 items-center"><Share2 size={18} /> Compartilhar Planos</div>
                     </button>
                 </div>
             </section>
@@ -109,7 +109,7 @@ const Profile = ({ toggleTheme, currentTheme }) => {
             <button onClick={handleLogout} className="btn" style={{ width: '100%', color: 'var(--color-danger)', background: 'transparent', fontWeight: 700, marginTop: '1rem' }}>
                 <LogOut size={20} style={{ marginRight: '0.5rem' }} /> Sair da Conta
             </button>
-        </div >
+        </div>
     );
 };
 

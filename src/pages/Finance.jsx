@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
 import { TrendingUp, TrendingDown, DollarSign, Plus, Minus, X, ChevronLeft, CreditCard, Trash2, Edit2, Save, Search, Menu, Filter, Calendar, AlertCircle, CheckCircle2, RotateCcw, LogOut, User, Moon, Sun, ChevronRight, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format, parseISO, startOfMonth, endOfMonth, eachMonthOfInterval, subMonths, addMonths, isSameMonth, setMonth, subYears, addYears } from 'date-fns';
@@ -7,8 +7,36 @@ import { ptBR } from 'date-fns/locale';
 import { supabase } from '../supabaseClient';
 import './Finance.css';
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
-const CATEGORIES = ['Moradia', 'Alimentação', 'Transporte', 'Lazer', 'Saúde', 'Outros', 'Salário', 'Investimento'];
+const COLORS = [
+    '#3b82f6', // azul
+    '#10b981', // verde
+    '#f59e0b', // amarelo
+    '#ef4444', // vermelho
+    '#8b5cf6', // roxo
+    '#06b6d4', // ciano
+    '#22c55e', // verde claro
+    '#eab308', // amarelo escuro
+    '#f97316', // laranja
+    '#ec4899', // rosa
+    '#64748b', // cinza
+    '#14b8a6'  // teal
+];
+
+const CATEGORIES = [
+    'Alimentação',
+    'Assinaturas',
+    'Educação',
+    'Investimento',
+    'Lazer',
+    'Moradia',
+    'Outros',
+    'Presentes',
+    'Saúde',
+    'Salário',
+    'Trabalho',
+    'Transporte',
+    'Vendas'
+];
 
 const Finance = ({ toggleTheme, currentTheme }) => {
     const navigate = useNavigate();
@@ -109,27 +137,21 @@ const Finance = ({ toggleTheme, currentTheme }) => {
             closeModal();
         } catch (err) {
             console.error(err);
-            alert("Erro ao salvar. Verifique se as migrações SQL foram aplicadas.");
+            alert("Erro ao salvar.");
         }
     };
 
     const deleteTransaction = async (scope) => {
         if (!deleteItem) return;
-
         try {
             if (scope === 'one') {
                 await supabase.from('transactions').delete().eq('id', deleteItem.id);
-            } else if (scope === 'future') {
-                // Delete current and future occurrences in the same group
+            } else if (scope === 'future' && deleteItem.recurring_group_id) {
                 await supabase.from('transactions')
                     .delete()
                     .eq('recurring_group_id', deleteItem.recurring_group_id)
                     .gte('date', deleteItem.date);
-            } else {
-                // Default simple delete
-                await supabase.from('transactions').delete().eq('id', deleteItem.id);
             }
-
             setDeleteItem(null);
             fetchTransactions();
         } catch (err) {
@@ -168,9 +190,25 @@ const Finance = ({ toggleTheme, currentTheme }) => {
         setFormData(prev => ({ ...prev, repeatCount: Math.max(1, Math.min(60, prev.repeatCount + val)) }));
     };
 
+    // Calculate Data for Charts
     const incomeTotal = filteredTransactions.filter(t => t.type.toLowerCase() === 'income').reduce((acc, t) => acc + Number(t.amount), 0);
     const expenseTotal = filteredTransactions.filter(t => t.type.toLowerCase() === 'expense').reduce((acc, t) => acc + Number(t.amount), 0);
     const balanceTotal = incomeTotal - expenseTotal;
+
+    const expensesByCategory = filteredTransactions
+        .filter(t => t.type.toLowerCase() === 'expense')
+        .reduce((acc, t) => {
+            acc[t.category] = (acc[t.category] || 0) + Number(t.amount);
+            return acc;
+        }, {});
+
+    const pieData = Object.keys(expensesByCategory).length > 0
+        ? Object.keys(expensesByCategory).map(key => ({
+            name: key,
+            value: expensesByCategory[key],
+            percent: ((expensesByCategory[key] / expenseTotal) * 100).toFixed(0)
+        }))
+        : [];
 
     return (
         <div className="finance-page animate-fade-in">
@@ -231,6 +269,57 @@ const Finance = ({ toggleTheme, currentTheme }) => {
                         </PieChart>
                     </ResponsiveContainer>
                 </div>
+            </div>
+
+            {/* NEW CHART SECTION INSPIRED BY IMAGE */}
+            <div className="chart-container-modern card" style={{ padding: '1.5rem' }}>
+                <h2 style={{ fontSize: '1rem', textAlign: 'center', marginBottom: '1.5rem', fontWeight: 800, color: 'var(--color-text-main)' }}>Despesas do Mês</h2>
+
+                {pieData.length === 0 ? (
+                    <div className="empty-state" style={{ minHeight: '200px' }}>Sem despesas este mês.</div>
+                ) : (
+                    <>
+                        <div className="donut-and-legend" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', marginBottom: '2rem' }}>
+                            <div style={{ width: '160px', height: '160px' }}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={pieData}
+                                            innerRadius={45}
+                                            outerRadius={65}
+                                            dataKey="value"
+                                            paddingAngle={2}
+                                            label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                                            labelLine={false}
+                                        >
+                                            {pieData.map((_, idx) => <Cell key={idx} fill={COLORS[idx % COLORS.length]} />)}
+                                        </Pie>
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                            <div className="finance-legend" style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                {pieData.map((item, idx) => (
+                                    <div key={idx} className="legend-item" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', fontWeight: 600 }}>
+                                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: COLORS[idx % COLORS.length] }}></span>
+                                        <span style={{ color: 'var(--color-text-main)' }}>{item.name}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Bar Chart at the Bottom */}
+                        <div style={{ width: '100%', height: '120px', marginTop: '1rem' }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={pieData}>
+                                    <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                                        {pieData.map((_, idx) => <Cell key={idx} fill={COLORS[idx % COLORS.length]} />)}
+                                    </Bar>
+                                    <Tooltip cursor={{ fill: 'transparent' }} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </>
+                )}
             </div>
 
             <div className="search-filter-container">
@@ -318,7 +407,6 @@ const Finance = ({ toggleTheme, currentTheme }) => {
                 </div>
             )}
 
-            {/* DELETE MODAL FOR RECURRING OR SIMPLE */}
             {deleteItem && (
                 <div className="modal-overlay" style={{ alignItems: 'center' }}>
                     <div className="modal-content animate-fade-in" style={{ textAlign: 'center', maxWidth: '360px' }}>

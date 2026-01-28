@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Plus, CheckSquare, ShoppingBag, Calendar, LogOut, Briefcase, Users, Moon, Sun, X, AlertCircle, Menu, User, MapPin } from 'lucide-react';
+import { Bell, Plus, CheckSquare, ShoppingBag, Calendar, LogOut, Briefcase, Users, Moon, Sun, X, AlertCircle, Menu, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format, isPast, isToday, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -54,26 +54,20 @@ const Dashboard = ({ toggleTheme, currentTheme }) => {
         }
     };
 
-    const menuItems = [
-        { label: 'Meu Perfil', icon: User, onClick: () => navigate('/profile') },
-        { label: 'Tema: ' + (currentTheme === 'light' ? 'Escuro' : 'Claro'), icon: currentTheme === 'light' ? Moon : Sun, onClick: () => { toggleTheme(); setShowMenu(false); } },
-        { label: 'Sair', icon: LogOut, onClick: async () => { await supabase.auth.signOut(); navigate('/login'); } },
-    ];
-
     return (
         <div className="dashboard-container animate-fade-in">
-            <header className="top-bar">
+            <header className="top-bar-modern">
                 <div className="user-greeting">
-                    <h1>Bom dia,</h1>
-                    <h2 className="capitalize">{userData.name}!</h2>
+                    <h1 style={{ fontSize: '1rem', opacity: 0.7, fontWeight: 600 }}>Bom dia,</h1>
+                    <h2 className="capitalize" style={{ fontSize: '1.5rem', fontWeight: 800 }}>{userData.name}!</h2>
                 </div>
                 <div className="header-actions">
                     <button className="icon-action-btn" onClick={() => setShowNotifications(true)}>
-                        <Bell size={24} color="#6b7280" />
+                        <Bell size={24} />
                         {(overdueTasks.length > 0 || todayEvents.length > 0) && <span className="notification-badge"></span>}
                     </button>
                     <button className="icon-action-btn" onClick={() => setShowMenu(true)}>
-                        <Menu size={24} color="#6b7280" />
+                        <Menu size={24} />
                     </button>
                 </div>
             </header>
@@ -104,12 +98,12 @@ const Dashboard = ({ toggleTheme, currentTheme }) => {
                     </div>
                 ) : (
                     todayEvents.map(event => (
-                        <CompactAgendaItem key={event.id} icon={event.type === 'work' ? Briefcase : Users} text={event.title} time={format(parseISO(event.start_time), 'HH:mm')} location={event.location} />
+                        <CompactAgendaItem key={event.id} icon={event.type === 'work' ? Briefcase : Users} text={event.title} time={format(parseISO(event.start_time), 'HH:mm')} />
                     ))
                 )}
             </section>
 
-            {/* Hamburger Menu Overlay */}
+            {/* SIDEBAR MENU */}
             {showMenu && (
                 <div className="modal-overlay" onClick={() => setShowMenu(false)} style={{ alignItems: 'flex-start', justifyContent: 'flex-end', padding: 0 }}>
                     <div className="modal-content animate-slide-right" onClick={e => e.stopPropagation()} style={{ width: '280px', height: '100%', borderRadius: 0, padding: '2rem 1.5rem' }}>
@@ -118,12 +112,15 @@ const Dashboard = ({ toggleTheme, currentTheme }) => {
                             <button className="modal-close-btn" onClick={() => setShowMenu(false)}><X size={20} /></button>
                         </div>
                         <div className="menu-list" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
-                            {menuItems.map((item, idx) => (
-                                <button key={idx} onClick={item.onClick} className="btn" style={{ justifyContent: 'flex-start', background: 'var(--color-bg)', color: 'var(--color-text-main)', width: '100%', gap: '1rem' }}>
-                                    <item.icon size={20} />
-                                    {item.label}
-                                </button>
-                            ))}
+                            <button onClick={() => navigate('/profile')} className="btn menu-btn">
+                                <User size={20} /> Meu Perfil
+                            </button>
+                            <button onClick={() => { toggleTheme(); setShowMenu(false); }} className="btn menu-btn">
+                                {currentTheme === 'light' ? <Moon size={20} /> : <Sun size={20} />} Tema {currentTheme === 'light' ? 'Escuro' : 'Claro'}
+                            </button>
+                            <button onClick={async () => { await supabase.auth.signOut(); navigate('/login'); }} className="btn menu-btn">
+                                <LogOut size={20} /> Sair
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -178,14 +175,12 @@ const QuickBtn = ({ label, icon: Icon, onClick }) => (
     </div>
 );
 
-const CompactAgendaItem = ({ icon: Icon, text, time, location }) => (
+const CompactAgendaItem = ({ icon: Icon, text, time }) => (
     <div className="compact-agenda-card">
         <div className="icon-wrapper"><Icon size={18} /></div>
         <div className="content">
             <div className="title">{text}</div>
-            <div className="subtext">
-                {time} {location && <span style={{ marginLeft: '10px', opacity: 0.7 }}><MapPin size={10} /> {location}</span>}
-            </div>
+            <div className="subtext">{time}</div>
         </div>
     </div>
 );

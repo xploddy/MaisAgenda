@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Check, ChevronLeft, Calendar, X, Trash2, Edit2, Save, Tag, AlertCircle } from 'lucide-react';
+import { Plus, Check, ChevronLeft, Calendar, X, Trash2, Edit2, Save, Tag, AlertCircle, Menu, CheckSquare, LogOut, User, Moon, Sun } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { format, parseISO, isPast, isToday, addHours } from 'date-fns';
+import { format, parseISO, isPast, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '../supabaseClient';
 import './Tasks.css';
 
-const Tasks = () => {
+const Tasks = ({ toggleTheme, currentTheme }) => {
     const navigate = useNavigate();
     const location = useLocation();
     const [tasks, setTasks] = useState([]);
@@ -14,6 +14,7 @@ const Tasks = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTask, setEditingTask] = useState(null);
     const [deleteId, setDeleteId] = useState(null);
+    const [showMenu, setShowMenu] = useState(false);
     const [formData, setFormData] = useState({ title: '', category: 'Trabalho', priority: 'medium', due_date: format(new Date(), 'yyyy-MM-dd') });
 
     useEffect(() => {
@@ -53,7 +54,6 @@ const Tasks = () => {
         };
 
         try {
-            // FIX: Using T12:00:00 to prevent timezone shifting (the day jumping bug)
             payload.due_date = formData.due_date ? new Date(`${formData.due_date}T12:00:00`).toISOString() : null;
 
             let result = editingTask
@@ -71,7 +71,7 @@ const Tasks = () => {
             closeModal();
         } catch (err) {
             console.error(err);
-            alert("Erro ao salvar tarefa. Se o erro de coluna persistir, atualize a página (F5) para o cache do bando de dados atualizar.");
+            alert("Erro ao salvar tarefa. Verifique as migrações SQL.");
         }
     };
 
@@ -109,10 +109,13 @@ const Tasks = () => {
 
     return (
         <div className="tasks-page animate-fade-in">
-            <header className="tasks-header">
+            <header className="top-bar-modern">
                 <button className="icon-btn-ghost" onClick={() => navigate('/')}><ChevronLeft size={24} /></button>
-                <h1>Minhas Tarefas</h1>
-                <div style={{ width: 44 }}></div>
+                <h1 className="page-title">Tarefa</h1>
+                <div className="header-actions">
+                    <button className="icon-action-btn no-bg" style={{ boxShadow: 'none' }}><CheckSquare size={24} color="var(--color-primary)" /></button>
+                    <button className="icon-action-btn" onClick={() => setShowMenu(true)}><Menu size={24} /></button>
+                </div>
             </header>
 
             <div className="sub-tabs-container">
@@ -213,6 +216,29 @@ const Tasks = () => {
                         <div style={{ display: 'flex', gap: '1rem' }}>
                             <button className="btn" style={{ flex: 1, background: 'var(--color-bg)' }} onClick={() => setDeleteId(null)}>Cancelar</button>
                             <button className="btn btn-primary" style={{ flex: 1, background: '#ef4444' }} onClick={confirmDelete}>Excluir</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* SIDEBAR MENU */}
+            {showMenu && (
+                <div className="modal-overlay" onClick={() => setShowMenu(false)} style={{ alignItems: 'flex-start', justifyContent: 'flex-end', padding: 0 }}>
+                    <div className="modal-content animate-slide-right" onClick={e => e.stopPropagation()} style={{ width: '280px', height: '100%', borderRadius: 0, padding: '2rem 1.5rem' }}>
+                        <div className="modal-header">
+                            <h3 className="modal-title">Menu</h3>
+                            <button className="modal-close-btn" onClick={() => setShowMenu(false)}><X size={20} /></button>
+                        </div>
+                        <div className="menu-list" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
+                            <button onClick={() => navigate('/profile')} className="btn menu-btn">
+                                <User size={20} /> Meu Perfil
+                            </button>
+                            <button onClick={() => { toggleTheme(); setShowMenu(false); }} className="btn menu-btn">
+                                {currentTheme === 'light' ? <Moon size={20} /> : <Sun size={20} />} Tema {currentTheme === 'light' ? 'Escuro' : 'Claro'}
+                            </button>
+                            <button onClick={async () => { await supabase.auth.signOut(); navigate('/login'); }} className="btn menu-btn">
+                                <LogOut size={20} /> Sair
+                            </button>
                         </div>
                     </div>
                 </div>

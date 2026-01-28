@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Clock, Plus, X, Trash2, Edit2, Calendar as CalendarIcon, Briefcase, Users, Heart, Save, MapPin, Repeat, Bell, AlignLeft, UserPlus, Check, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, Plus, X, Trash2, Edit2, Calendar as CalendarIcon, Briefcase, Users, Heart, Save, MapPin, Repeat, Bell, AlignLeft, UserPlus, Check, AlertCircle, Menu, LogOut, User, Moon, Sun } from 'lucide-react';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay, parseISO, setMonth, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import './Planning.css';
 
-const Planning = () => {
+const Planning = ({ toggleTheme, currentTheme }) => {
     const navigate = useNavigate();
     const location = useLocation();
     const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -17,6 +17,7 @@ const Planning = () => {
     const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
     const [editingEvent, setEditingEvent] = useState(null);
     const [deleteId, setDeleteId] = useState(null);
+    const [showMenu, setShowMenu] = useState(false);
     const [formData, setFormData] = useState({
         title: '', location: '', startDate: format(new Date(), 'yyyy-MM-dd'), startTime: '09:00',
         endDate: format(new Date(), 'yyyy-MM-dd'), endTime: '10:00',
@@ -73,7 +74,7 @@ const Planning = () => {
             : await supabase.from('calendar_events').insert([payload]);
 
         if (result.error) {
-            alert("Erro ao salvar: " + result.error.message + "\n\nIMPORTANTE: Verifique se rodou o script SQL de instalação da tabela.");
+            alert("Erro ao salvar: " + result.error.message);
         } else {
             fetchEvents();
             closeModal();
@@ -154,10 +155,13 @@ const Planning = () => {
 
     return (
         <div className="planning-page animate-fade-in">
-            <header className="planning-header">
+            <header className="top-bar-modern">
                 <button className="icon-btn-ghost" onClick={() => navigate('/')}><ChevronLeft size={24} /></button>
-                <h1>Planejamento</h1>
-                <div style={{ width: 44 }}></div>
+                <h1 className="page-title">Plano</h1>
+                <div className="header-actions">
+                    <button className="icon-action-btn no-bg" style={{ boxShadow: 'none' }}><CalendarIcon size={24} color="var(--color-primary)" /></button>
+                    <button className="icon-action-btn" onClick={() => setShowMenu(true)}><Menu size={24} /></button>
+                </div>
             </header>
 
             <div className="calendar-card">
@@ -209,7 +213,6 @@ const Planning = () => {
 
             <button className="fab" onClick={() => openModal()}><Plus size={32} /></button>
 
-            {/* MAIN FORM MODAL */}
             {isModalOpen && (
                 <div className="modal-overlay" onClick={closeModal} style={{ alignItems: 'center' }}>
                     <div className="modal-content scrollable-modal" onClick={e => e.stopPropagation()}>
@@ -266,7 +269,7 @@ const Planning = () => {
                 </div>
             )}
 
-            {/* BEAUTIFUL DELETE MODAL */}
+            {/* DELETE MODAL */}
             {deleteId && (
                 <div className="modal-overlay" style={{ alignItems: 'center' }}>
                     <div className="modal-content animate-fade-in" style={{ textAlign: 'center', maxWidth: '320px' }}>
@@ -278,6 +281,29 @@ const Planning = () => {
                         <div style={{ display: 'flex', gap: '1rem' }}>
                             <button className="btn" style={{ flex: 1, background: 'var(--color-bg)' }} onClick={() => setDeleteId(null)}>Cancelar</button>
                             <button className="btn btn-primary" style={{ flex: 1, background: '#ef4444' }} onClick={confirmDelete}>Excluir</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* SIDEBAR MENU */}
+            {showMenu && (
+                <div className="modal-overlay" onClick={() => setShowMenu(false)} style={{ alignItems: 'flex-start', justifyContent: 'flex-end', padding: 0 }}>
+                    <div className="modal-content animate-slide-right" onClick={e => e.stopPropagation()} style={{ width: '280px', height: '100%', borderRadius: 0, padding: '2rem 1.5rem' }}>
+                        <div className="modal-header">
+                            <h3 className="modal-title">Menu</h3>
+                            <button className="modal-close-btn" onClick={() => setShowMenu(false)}><X size={20} /></button>
+                        </div>
+                        <div className="menu-list" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
+                            <button onClick={() => navigate('/profile')} className="btn menu-btn">
+                                <User size={20} /> Meu Perfil
+                            </button>
+                            <button onClick={() => { toggleTheme(); setShowMenu(false); }} className="btn menu-btn">
+                                {currentTheme === 'light' ? <Moon size={20} /> : <Sun size={20} />} Tema {currentTheme === 'light' ? 'Escuro' : 'Claro'}
+                            </button>
+                            <button onClick={async () => { await supabase.auth.signOut(); navigate('/login'); }} className="btn menu-btn">
+                                <LogOut size={20} /> Sair
+                            </button>
                         </div>
                     </div>
                 </div>

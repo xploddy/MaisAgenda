@@ -51,10 +51,10 @@ function App() {
         <Layout toggleTheme={toggleTheme} currentTheme={theme}>
           <Routes>
             <Route path="/" element={<Dashboard toggleTheme={toggleTheme} currentTheme={theme} />} />
-            <Route path="/tasks" element={<Tasks />} />
-            <Route path="/shopping" element={<Shopping />} />
-            <Route path="/planning" element={<Planning />} />
-            <Route path="/finance" element={<Finance />} />
+            <Route path="/tasks" element={<Tasks toggleTheme={toggleTheme} currentTheme={theme} />} />
+            <Route path="/shopping" element={<Shopping toggleTheme={toggleTheme} currentTheme={theme} />} />
+            <Route path="/planning" element={<Planning toggleTheme={toggleTheme} currentTheme={theme} />} />
+            <Route path="/finance" element={<Finance toggleTheme={toggleTheme} currentTheme={theme} />} />
             <Route path="/profile" element={<Profile toggleTheme={toggleTheme} currentTheme={theme} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

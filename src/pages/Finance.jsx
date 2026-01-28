@@ -221,6 +221,26 @@ const Finance = ({ toggleTheme, currentTheme }) => {
                 </div>
             </header>
 
+            <div className="finance-header-card-modern">
+                <div className="balance-info">
+                    <span className="label">Saldo do Mês</span>
+                    <span className="value">R$ {balanceTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    <div className="summary-pills">
+                        <div className="pill income"><TrendingUp size={12} /> {incomeTotal.toLocaleString('pt-BR')}</div>
+                        <div className="pill expense"><TrendingDown size={12} /> {expenseTotal.toLocaleString('pt-BR')}</div>
+                    </div>
+                </div>
+                <div className="mini-chart" style={{ width: 80, height: 80 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                            <Pie data={[{ value: Math.max(0.1, incomeTotal) }, { value: Math.max(0.1, expenseTotal) }]} innerRadius={25} outerRadius={35} dataKey="value">
+                                <Cell fill="#10b981" /><Cell fill="#f43f5e" />
+                            </Pie>
+                        </PieChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+
             {/* INTEGRATED CARD: MONTH NAV + CHARTS */}
             <div className="chart-container-modern card" style={{ padding: '0 0 1.5rem 0', overflow: 'hidden' }}>
                 {/* Integrated Month Navigation at the Top of the Card */}
@@ -302,26 +322,6 @@ const Finance = ({ toggleTheme, currentTheme }) => {
                     </div>
                 </div>
             )}
-
-            <div className="finance-header-card-modern">
-                <div className="balance-info">
-                    <span className="label">Saldo do Mês</span>
-                    <span className="value">R$ {balanceTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                    <div className="summary-pills">
-                        <div className="pill income"><TrendingUp size={12} /> {incomeTotal.toLocaleString('pt-BR')}</div>
-                        <div className="pill expense"><TrendingDown size={12} /> {expenseTotal.toLocaleString('pt-BR')}</div>
-                    </div>
-                </div>
-                <div className="mini-chart" style={{ width: 80, height: 80 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                            <Pie data={[{ value: Math.max(0.1, incomeTotal) }, { value: Math.max(0.1, expenseTotal) }]} innerRadius={25} outerRadius={35} dataKey="value">
-                                <Cell fill="#10b981" /><Cell fill="#f43f5e" />
-                            </Pie>
-                        </PieChart>
-                    </ResponsiveContainer>
-                </div>
-            </div>
 
             <div className="search-filter-container">
                 <div className="search-box-modern">

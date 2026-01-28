@@ -30,6 +30,7 @@ const CATEGORIES = [
     'Lazer',
     'Moradia',
     'Outros',
+    'Pessoal',
     'Presentes',
     'Saúde',
     'Salário',
@@ -259,7 +260,7 @@ const Finance = ({ toggleTheme, currentTheme }) => {
                         <div className="empty-state" style={{ minHeight: '200px' }}>Sem despesas este mês.</div>
                     ) : (
                         <>
-                            <div className="donut-and-legend" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', marginBottom: '2rem' }}>
+                            <div className="donut-and-legend" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', marginBottom: '1rem' }}>
                                 <div style={{ width: '160px', height: '160px' }}>
                                     <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
@@ -268,10 +269,7 @@ const Finance = ({ toggleTheme, currentTheme }) => {
                                                 innerRadius={45}
                                                 outerRadius={65}
                                                 dataKey="value"
-                                                paddingAngle={2}
-                                                label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
-                                                labelLine={false}
-                                            >
+                                                paddingAngle={2}                                            >
                                                 {pieData.map((_, idx) => <Cell key={idx} fill={COLORS[idx % COLORS.length]} />)}
                                             </Pie>
                                         </PieChart>

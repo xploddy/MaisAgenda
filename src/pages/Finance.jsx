@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, Tooltip } from 'recharts';
 import { TrendingUp, TrendingDown, DollarSign, Plus, Minus, X, ChevronLeft, CreditCard, Trash2, Edit2, Save, Search, Menu, Filter, Calendar, AlertCircle, CheckCircle2, RotateCcw, LogOut, User, Moon, Sun, ChevronRight, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format, parseISO, startOfMonth, endOfMonth, eachMonthOfInterval, subMonths, addMonths, isSameMonth, setMonth, subYears, addYears } from 'date-fns';
@@ -221,35 +221,87 @@ const Finance = ({ toggleTheme, currentTheme }) => {
                 </div>
             </header>
 
-            <div className="calendar-card" style={{ marginBottom: '1.5rem', padding: '1rem' }}>
-                <div className="calendar-nav" style={{ marginBottom: 0 }}>
+            {/* INTEGRATED CARD: MONTH NAV + CHARTS */}
+            <div className="chart-container-modern card" style={{ padding: '0 0 1.5rem 0', overflow: 'hidden' }}>
+                {/* Integrated Month Navigation at the Top of the Card */}
+                <div className="calendar-nav" style={{ padding: '1.25rem', borderBottom: '1px solid var(--color-border)', marginBottom: '1.5rem', background: 'var(--color-input-bg)', borderRadius: '1.25rem 1.25rem 0 0' }}>
                     <button className="nav-arrow-btn" onClick={() => setSelectedMonth(subMonths(selectedMonth, 1))}><ChevronLeft size={20} /></button>
-                    <span className="month-label clickable" onClick={() => setIsMonthPickerOpen(true)}>
+                    <span className="month-label clickable" onClick={() => setIsMonthPickerOpen(true)} style={{ fontSize: '1rem', fontWeight: 800 }}>
                         {format(selectedMonth, 'MMMM yyyy', { locale: ptBR })}
                     </span>
                     <button className="nav-arrow-btn" onClick={() => setSelectedMonth(addMonths(selectedMonth, 1))}><ChevronRight size={20} /></button>
                 </div>
 
-                {isMonthPickerOpen && (
-                    <div className="month-picker-overlay animate-fade-in" style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-                        <div className="calendar-card" style={{ width: '100%', maxWidth: '340px' }}>
-                            <div className="calendar-nav">
-                                <button className="nav-arrow-btn" onClick={(e) => { e.stopPropagation(); setSelectedMonth(subYears(selectedMonth, 1)); }}><ChevronLeft size={20} /></button>
-                                <span className="month-label">{format(selectedMonth, 'yyyy')}</span>
-                                <button className="nav-arrow-btn" onClick={(e) => { e.stopPropagation(); setSelectedMonth(addYears(selectedMonth, 1)); }}><ChevronRight size={20} /></button>
+                <div style={{ padding: '0 1.5rem' }}>
+                    <h2 style={{ fontSize: '1rem', textAlign: 'center', marginBottom: '1.5rem', fontWeight: 800, color: 'var(--color-text-main)' }}>Despesas do Mês</h2>
+
+                    {pieData.length === 0 ? (
+                        <div className="empty-state" style={{ minHeight: '200px' }}>Sem despesas este mês.</div>
+                    ) : (
+                        <>
+                            <div className="donut-and-legend" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', marginBottom: '2rem' }}>
+                                <div style={{ width: '160px', height: '160px' }}>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie
+                                                data={pieData}
+                                                innerRadius={45}
+                                                outerRadius={65}
+                                                dataKey="value"
+                                                paddingAngle={2}
+                                                label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                                                labelLine={false}
+                                            >
+                                                {pieData.map((_, idx) => <Cell key={idx} fill={COLORS[idx % COLORS.length]} />)}
+                                            </Pie>
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </div>
+                                <div className="finance-legend" style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                    {pieData.map((item, idx) => (
+                                        <div key={idx} className="legend-item" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', fontWeight: 600 }}>
+                                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: COLORS[idx % COLORS.length] }}></span>
+                                            <span style={{ color: 'var(--color-text-main)' }}>{item.name}</span>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
-                            <div className="month-grid">
-                                {Array.from({ length: 12 }, (_, i) => i).map(m => (
-                                    <button key={m} className={`month-btn ${selectedMonth.getMonth() === m ? 'active' : ''}`} onClick={() => handleMonthSelect(m)}>
-                                        {format(setMonth(new Date(), m), 'MMM', { locale: ptBR })}
-                                    </button>
-                                ))}
+
+                            <div style={{ width: '100%', height: '120px', marginTop: '1rem' }}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={pieData}>
+                                        <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                                            {pieData.map((_, idx) => <Cell key={idx} fill={COLORS[idx % COLORS.length]} />)}
+                                        </Bar>
+                                        <Tooltip cursor={{ fill: 'transparent' }} />
+                                    </BarChart>
+                                </ResponsiveContainer>
                             </div>
-                            <button className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }} onClick={() => setIsMonthPickerOpen(false)}>Fechar</button>
-                        </div>
-                    </div>
-                )}
+                        </>
+                    )}
+                </div>
             </div>
+
+            {/* MONTH PICKER OVERLAY (Needs to be global-ish or relative to page) */}
+            {isMonthPickerOpen && (
+                <div className="month-picker-overlay animate-fade-in" style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+                    <div className="calendar-card" style={{ width: '100%', maxWidth: '340px' }}>
+                        <div className="calendar-nav">
+                            <button className="nav-arrow-btn" onClick={(e) => { e.stopPropagation(); setSelectedMonth(subYears(selectedMonth, 1)); }}><ChevronLeft size={20} /></button>
+                            <span className="month-label">{format(selectedMonth, 'yyyy')}</span>
+                            <button className="nav-arrow-btn" onClick={(e) => { e.stopPropagation(); setSelectedMonth(addYears(selectedMonth, 1)); }}><ChevronRight size={20} /></button>
+                        </div>
+                        <div className="month-grid">
+                            {Array.from({ length: 12 }, (_, i) => i).map(m => (
+                                <button key={m} className={`month-btn ${selectedMonth.getMonth() === m ? 'active' : ''}`} onClick={() => handleMonthSelect(m)}>
+                                    {format(setMonth(new Date(), m), 'MMM', { locale: ptBR })}
+                                </button>
+                            ))}
+                        </div>
+                        <button className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }} onClick={() => setIsMonthPickerOpen(false)}>Fechar</button>
+                    </div>
+                </div>
+            )}
 
             <div className="finance-header-card-modern">
                 <div className="balance-info">
@@ -269,57 +321,6 @@ const Finance = ({ toggleTheme, currentTheme }) => {
                         </PieChart>
                     </ResponsiveContainer>
                 </div>
-            </div>
-
-            {/* NEW CHART SECTION INSPIRED BY IMAGE */}
-            <div className="chart-container-modern card" style={{ padding: '1.5rem' }}>
-                <h2 style={{ fontSize: '1rem', textAlign: 'center', marginBottom: '1.5rem', fontWeight: 800, color: 'var(--color-text-main)' }}>Despesas do Mês</h2>
-
-                {pieData.length === 0 ? (
-                    <div className="empty-state" style={{ minHeight: '200px' }}>Sem despesas este mês.</div>
-                ) : (
-                    <>
-                        <div className="donut-and-legend" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', marginBottom: '2rem' }}>
-                            <div style={{ width: '160px', height: '160px' }}>
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie
-                                            data={pieData}
-                                            innerRadius={45}
-                                            outerRadius={65}
-                                            dataKey="value"
-                                            paddingAngle={2}
-                                            label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
-                                            labelLine={false}
-                                        >
-                                            {pieData.map((_, idx) => <Cell key={idx} fill={COLORS[idx % COLORS.length]} />)}
-                                        </Pie>
-                                    </PieChart>
-                                </ResponsiveContainer>
-                            </div>
-                            <div className="finance-legend" style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                                {pieData.map((item, idx) => (
-                                    <div key={idx} className="legend-item" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', fontWeight: 600 }}>
-                                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: COLORS[idx % COLORS.length] }}></span>
-                                        <span style={{ color: 'var(--color-text-main)' }}>{item.name}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Bar Chart at the Bottom */}
-                        <div style={{ width: '100%', height: '120px', marginTop: '1rem' }}>
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={pieData}>
-                                    <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                                        {pieData.map((_, idx) => <Cell key={idx} fill={COLORS[idx % COLORS.length]} />)}
-                                    </Bar>
-                                    <Tooltip cursor={{ fill: 'transparent' }} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </>
-                )}
             </div>
 
             <div className="search-filter-container">

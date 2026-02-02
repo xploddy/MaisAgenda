@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Plus, CheckSquare, ShoppingBag, Calendar, LogOut, Briefcase, Users, Moon, Sun, X, AlertCircle, Menu, User, Clock, MapPin, Snooze } from 'lucide-react';
+import { Bell, Plus, CheckSquare, ShoppingBag, Calendar, LogOut, Briefcase, Users, Moon, Sun, X, AlertCircle, Menu, User, Clock, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format, isPast, isToday, parseISO, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -242,7 +242,7 @@ const Dashboard = ({ toggleTheme, currentTheme }) => {
                                             </div>
                                             <div style={{ display: 'flex', gap: '0.5rem' }}>
                                                 <button onClick={() => snoozeReminder(rem.id)} style={{ flex: 1, padding: '0.5rem', borderRadius: '0.5rem', border: '1px solid var(--color-border)', background: 'transparent', color: 'var(--color-text-main)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', cursor: 'pointer' }}>
-                                                    <Snooze size={14} /> Adiar 10m
+                                                    <Clock size={14} /> Adiar 10m
                                                 </button>
                                                 <button onClick={() => dismissReminder(rem.id)} style={{ flex: 1, padding: '0.5rem', borderRadius: '0.5rem', border: 'none', background: 'rgba(239,68,68,0.1)', color: '#ef4444', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>
                                                     Dispensar

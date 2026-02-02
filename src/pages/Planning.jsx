@@ -19,6 +19,7 @@ const Planning = ({ toggleTheme, currentTheme }) => {
 
     // UI State
     const [editingEvent, setEditingEvent] = useState(null);
+    const [isCreating, setIsCreating] = useState(false); // New Creation State
     const [deleteId, setDeleteId] = useState(null);
     const [showMenu, setShowMenu] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
@@ -43,6 +44,10 @@ const Planning = ({ toggleTheme, currentTheme }) => {
     };
 
     useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        if (params.get('add') === 'true') {
+            setIsCreating(true);
+        }
         fetchEvents();
     }, [selectedDate, currentMonth, location]);
 
@@ -160,6 +165,15 @@ const Planning = ({ toggleTheme, currentTheme }) => {
         setIsMonthPickerOpen(false);
     };
 
+    const handleCloseModal = () => {
+        setEditingEvent(null);
+        setIsCreating(false);
+        fetchEvents();
+        if (isCreating) {
+            navigate('/planning', { replace: true }); // Clear URL param
+        }
+    };
+
     // Calendar Generation
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(monthStart);
@@ -263,7 +277,13 @@ const Planning = ({ toggleTheme, currentTheme }) => {
                 </div>
             </section>
 
-            {editingEvent && <AddPlanningModal event={editingEvent} onClose={() => { setEditingEvent(null); fetchEvents(); }} />}
+            {/* ADD/EDIT MODAL */}
+            {(editingEvent || isCreating) && (
+                <AddPlanningModal
+                    event={editingEvent}
+                    onClose={handleCloseModal}
+                />
+            )}
 
             {/* DELETE MODAL */}
             {deleteId && (

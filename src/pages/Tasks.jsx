@@ -16,9 +16,16 @@ const Tasks = ({ toggleTheme, currentTheme }) => {
     const [deleteId, setDeleteId] = useState(null);
     const [showMenu, setShowMenu] = useState(false);
 
+    // New Creation State
+    const [isCreating, setIsCreating] = useState(false);
+
     useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        if (params.get('add') === 'true') {
+            setIsCreating(true);
+        }
         fetchTasks();
-    }, [location]); // Reload on location change (e.g. if navigated from Navbar add)
+    }, [location]);
 
     const fetchTasks = async () => {
         let { data, error } = await supabase
@@ -44,6 +51,13 @@ const Tasks = ({ toggleTheme, currentTheme }) => {
         await supabase.from('tasks').delete().eq('id', deleteId);
         setDeleteId(null);
         fetchTasks();
+    };
+
+    const handleCloseCreate = () => {
+        setIsCreating(false);
+        fetchTasks();
+        // Clear URL param without reload
+        navigate('/tasks', { replace: true });
     };
 
     const filteredTasks = tasks.filter(t => (activeTab === 'Todos' || t.category === activeTab));
@@ -98,7 +112,8 @@ const Tasks = ({ toggleTheme, currentTheme }) => {
                 )}
             </div>
 
-            {/* Using Shared AddTaskModal for Editing */}
+            {/* MODALS */}
+            {isCreating && <AddTaskModal onClose={handleCloseCreate} />}
             {editingTask && <AddTaskModal task={editingTask} onClose={() => { setEditingTask(null); fetchTasks(); }} />}
 
             {/* DELETE MODAL */}

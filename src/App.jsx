@@ -4,7 +4,6 @@ import { supabase } from './supabaseClient'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import Tasks from './pages/Tasks'
-import Shopping from './pages/Shopping'
 import Planning from './pages/Planning'
 import Finance from './pages/Finance'
 import Profile from './pages/Profile'
@@ -52,7 +51,6 @@ function App() {
           <Routes>
             <Route path="/" element={<Dashboard toggleTheme={toggleTheme} currentTheme={theme} />} />
             <Route path="/tasks" element={<Tasks toggleTheme={toggleTheme} currentTheme={theme} />} />
-            <Route path="/shopping" element={<Shopping toggleTheme={toggleTheme} currentTheme={theme} />} />
             <Route path="/planning" element={<Planning toggleTheme={toggleTheme} currentTheme={theme} />} />
             <Route path="/finance" element={<Finance toggleTheme={toggleTheme} currentTheme={theme} />} />
             <Route path="/profile" element={<Profile toggleTheme={toggleTheme} currentTheme={theme} />} />

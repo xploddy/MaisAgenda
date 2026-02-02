@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Plus, CheckSquare, ShoppingBag, Calendar, LogOut, Briefcase, Users, Moon, Sun, X, AlertCircle, Menu, User, Clock, MapPin } from 'lucide-react';
+import { Bell, Plus, CheckSquare, Calendar, LogOut, Briefcase, Users, Moon, Sun, X, AlertCircle, Menu, User, Clock, MapPin, TrendingUp, CreditCard, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format, isPast, isToday, parseISO, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -8,18 +8,20 @@ import './Dashboard.css';
 
 const Dashboard = ({ toggleTheme, currentTheme }) => {
     const navigate = useNavigate();
-    const [counts, setCounts] = useState({ tasks: 0, shopping: 0, finance: 0 });
+    const [counts, setCounts] = useState({ tasks: 0, finance: 0 });
     const [userData, setUserData] = useState({ name: '', email: '' });
     const [showNotifications, setShowNotifications] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
+
+    // Data State
     const [overdueTasks, setOverdueTasks] = useState([]);
+    const [pendingTasks, setPendingTasks] = useState([]); // Replaces TodayEvents list in main view
     const [todayEvents, setTodayEvents] = useState([]);
     const [allEvents, setAllEvents] = useState([]);
     const [activeReminders, setActiveReminders] = useState([]);
     const [toastNotifications, setToastNotifications] = useState([]);
     const [dismissedReminders, setDismissedReminders] = useState(new Set());
     const [snoozedReminders, setSnoozedReminders] = useState(new Map());
-
     const [toastedEventIds, setToastedEventIds] = useState(new Set());
 
     useEffect(() => {
@@ -42,7 +44,6 @@ const Dashboard = ({ toggleTheme, currentTheme }) => {
                 const minutesUntil = differenceInMinutes(eventStart, now);
                 const reminderThreshold = event.reminder_minutes;
 
-                // Check if suspended (snoozed)
                 const snoozeTime = snoozedReminders.get(event.id);
                 if (snoozeTime && snoozeTime > now) return;
 
@@ -70,7 +71,6 @@ const Dashboard = ({ toggleTheme, currentTheme }) => {
             setToastNotifications(prev => [...prev, ...newToasts]);
             setToastedEventIds(prev => new Set([...prev, ...newToasts.map(t => t.id)]));
 
-            // Auto remove toasts after 8 seconds
             newToasts.forEach(t => {
                 setTimeout(() => {
                     setToastNotifications(prev => prev.filter(item => item.id !== t.id));
@@ -86,7 +86,6 @@ const Dashboard = ({ toggleTheme, currentTheme }) => {
     };
 
     const snoozeReminder = (id) => {
-        // Snooze for 10 minutes
         const snoozeUntil = new Date(new Date().getTime() + 10 * 60000);
         setSnoozedReminders(prev => new Map(prev).set(id, snoozeUntil));
         setActiveReminders(prev => prev.filter(r => r.id !== id));
@@ -110,10 +109,9 @@ const Dashboard = ({ toggleTheme, currentTheme }) => {
 
     const fetchData = async () => {
         try {
+            // Counts
             const { count: tasksCount } = await supabase.from('tasks').select('*', { count: 'exact', head: true }).eq('completed', false);
-            const { count: shopCount } = await supabase.from('shopping_items').select('*', { count: 'exact', head: true }).eq('bought', false);
 
-            // Get current month's transactions only
             const now = new Date();
             const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
             const endOfCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
@@ -124,14 +122,24 @@ const Dashboard = ({ toggleTheme, currentTheme }) => {
                 .gte('date', startOfCurrentMonth)
                 .lte('date', endOfCurrentMonth);
 
-            setCounts({ tasks: tasksCount || 0, shopping: shopCount || 0, finance: finCount || 0 });
+            setCounts({ tasks: tasksCount || 0, finance: finCount || 0 });
 
-            const { data: tasks } = await supabase.from('tasks').select('*').eq('completed', false);
+            // Tasks Data
+            const { data: tasks } = await supabase
+                .from('tasks')
+                .select('*')
+                .eq('completed', false)
+                .order('due_date', { ascending: true }); // Most urgent first
+
             if (tasks) {
-                const filtered = tasks.filter(t => t.due_date && isPast(parseISO(t.due_date)) && !isToday(parseISO(t.due_date)));
-                setOverdueTasks(filtered);
+                const overdue = tasks.filter(t => t.due_date && isPast(parseISO(t.due_date)) && !isToday(parseISO(t.due_date)));
+                setOverdueTasks(overdue);
+
+                // Set pending tasks for main list (top 4)
+                setPendingTasks(tasks.slice(0, 4));
             }
 
+            // Events Data
             const { data: events } = await supabase.from('calendar_events').select('*');
             if (events) {
                 const today = events.filter(e => isToday(parseISO(e.start_time)));
@@ -165,31 +173,48 @@ const Dashboard = ({ toggleTheme, currentTheme }) => {
             {/* Summary Section */}
             <div className="dashboard-summary-grid">
                 <StatWidget color="blue" number={counts.tasks} label="Tarefas" icon={CheckSquare} onClick={() => navigate('/tasks')} />
-                <StatWidget color="green" number={counts.shopping} label="Compras" icon={ShoppingBag} onClick={() => navigate('/shopping')} />
-                <StatWidget color="red" number={counts.finance} label="Financeiro" icon={Calendar} onClick={() => navigate('/finance')} />
+                <StatWidget color="green" number={todayEvents.length} label="Agenda Hoje" icon={Calendar} onClick={() => navigate('/planning')} />
+                <StatWidget color="red" number={counts.finance} label="Financeiro" icon={TrendingUp} onClick={() => navigate('/finance')} />
             </div>
 
             {/* Quick Access */}
             <div className="quick-access-strip">
                 <QuickBtn label="Nova Tarefa" icon={Plus} onClick={() => navigate('/tasks?add=true')} />
-                <QuickBtn label="Nova Compra" icon={ShoppingBag} onClick={() => navigate('/shopping?add=true')} />
                 <QuickBtn label="Novo Evento" icon={Calendar} onClick={() => navigate('/planning?add=true')} />
+                <QuickBtn label="Perfil" icon={User} onClick={() => navigate('/profile')} />
             </div>
 
+            {/* REPLACED SECTION: Pending Tasks instead of Today's Agenda */}
             <section className="dashboard-section">
                 <div className="section-header">
-                    <h2>Agenda de Hoje</h2>
-                    <button className="see-all-btn" onClick={() => navigate('/planning')}>Ver tudo</button>
+                    <h2>Tarefas Pendentes</h2>
+                    <button className="see-all-btn" onClick={() => navigate('/tasks')}>Ver todas</button>
                 </div>
-                {todayEvents.length === 0 ? (
+                {pendingTasks.length === 0 ? (
                     <div className="empty-dashboard-card">
-                        <Calendar size={32} />
-                        <p>Nenhum compromisso marcado para hoje.</p>
+                        <CheckSquare size={32} />
+                        <p>Nenhuma tarefa pendente. ✨</p>
                     </div>
                 ) : (
-                    todayEvents.map(event => (
-                        <CompactAgendaItem key={event.id} icon={event.type === 'work' ? Briefcase : Users} text={event.title} time={format(parseISO(event.start_time), 'HH:mm')} />
-                    ))
+                    pendingTasks.map(task => {
+                        const d = task.due_date ? parseISO(task.due_date) : null;
+                        const isOverdue = d && isPast(d) && !isToday(d);
+
+                        return (
+                            <div key={task.id} className="compact-agenda-card" onClick={() => navigate('/tasks')}>
+                                <div className={`icon-wrapper ${isOverdue ? 'overdue-icon' : ''}`} style={{ background: isOverdue ? 'rgba(239,68,68,0.1)' : 'var(--color-bg-secondary)' }}>
+                                    {isOverdue ? <AlertCircle size={18} color="#ef4444" /> : <CheckSquare size={18} />}
+                                </div>
+                                <div className="content">
+                                    <div className="title" style={{ textDecoration: task.completed ? 'line-through' : 'none' }}>{task.title}</div>
+                                    <div className="subtext" style={{ color: isOverdue ? '#ef4444' : 'inherit' }}>
+                                        {d ? (isToday(d) ? 'Hoje' : format(d, "dd 'de' MMM", { locale: ptBR })) : 'Sem data'}
+                                    </div>
+                                </div>
+                                <ChevronRight size={16} style={{ opacity: 0.3 }} />
+                            </div>
+                        );
+                    })
                 )}
             </section>
 
@@ -216,8 +241,7 @@ const Dashboard = ({ toggleTheme, currentTheme }) => {
                 </div>
             )}
 
-            {/* Notifications Overlay */}
-            {/* Notifications Overlay */}
+            {/* NOTIFICATIONS */}
             {showNotifications && (
                 <div className="modal-overlay" onClick={() => setShowNotifications(false)}>
                     <div className="modal-content" onClick={e => e.stopPropagation()}>
@@ -226,34 +250,24 @@ const Dashboard = ({ toggleTheme, currentTheme }) => {
                             <button className="modal-close-btn" onClick={() => setShowNotifications(false)}><X size={20} /></button>
                         </div>
                         <div className="notification-list">
-                            {/* Active Reminders */}
                             {activeReminders.length > 0 && (
                                 <div className="reminders-section" style={{ marginBottom: '1rem' }}>
-                                    <h4 style={{ fontSize: '0.85rem', marginBottom: '0.75rem', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Lembretes</h4>
+                                    <h4 style={{ fontSize: '0.85rem', marginBottom: '0.75rem', opacity: 0.6, fontWeight: 700 }}>Lembretes</h4>
                                     {activeReminders.map(rem => (
-                                        <div key={rem.id} className="reminder-card-modal" style={{ background: 'var(--color-bg)', padding: '1rem', borderRadius: '1rem', marginBottom: '0.75rem', border: '1px solid var(--color-border)' }}>
+                                        <div key={rem.id} className="reminder-card-modal">
+                                            {/* Reminder content SAME as before */}
                                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                                                 <span style={{ fontWeight: 800, fontSize: '1rem' }}>{rem.title}</span>
                                                 <span style={{ fontSize: '0.8rem', color: 'var(--color-primary)', fontWeight: 700, background: 'rgba(59,130,246,0.1)', padding: '0.2rem 0.5rem', borderRadius: '0.5rem' }}>Em {rem.minutesUntil} min</span>
                                             </div>
-                                            <div style={{ display: 'flex', gap: '1rem', fontSize: '0.85rem', opacity: 0.8, marginBottom: '1rem' }}>
-                                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Clock size={14} /> {format(rem.startTime, 'HH:mm')}</span>
-                                                {rem.location && <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><MapPin size={14} /> {rem.location}</span>}
-                                            </div>
                                             <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                                <button onClick={() => snoozeReminder(rem.id)} style={{ flex: 1, padding: '0.5rem', borderRadius: '0.5rem', border: '1px solid var(--color-border)', background: 'transparent', color: 'var(--color-text-main)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', cursor: 'pointer' }}>
-                                                    <Clock size={14} /> Adiar 10m
-                                                </button>
-                                                <button onClick={() => dismissReminder(rem.id)} style={{ flex: 1, padding: '0.5rem', borderRadius: '0.5rem', border: 'none', background: 'rgba(239,68,68,0.1)', color: '#ef4444', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>
-                                                    Dispensar
-                                                </button>
+                                                <button onClick={() => snoozeReminder(rem.id)} style={{ flex: 1, padding: '0.5rem', borderRadius: '0.5rem', border: '1px solid var(--color-border)' }}>Adiar 10m</button>
+                                                <button onClick={() => dismissReminder(rem.id)} style={{ flex: 1, padding: '0.5rem', borderRadius: '0.5rem', border: 'none', background: '#fee2e2', color: '#ef4444' }}>Dispensar</button>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
                             )}
-
-                            {/* Other Notifications */}
                             {overdueTasks.length > 0 && (
                                 <div className="notif-item overdue">
                                     <AlertCircle size={18} />
@@ -266,7 +280,6 @@ const Dashboard = ({ toggleTheme, currentTheme }) => {
                                     <div>Você tem <strong>{todayEvents.length}</strong> eventos hoje.</div>
                                 </div>
                             )}
-
                             {overdueTasks.length === 0 && todayEvents.length === 0 && activeReminders.length === 0 && (
                                 <div className="empty-state">Tudo em dia! ✨</div>
                             )}
@@ -274,32 +287,15 @@ const Dashboard = ({ toggleTheme, currentTheme }) => {
                     </div>
                 </div>
             )}
-
-            {/* TOAST NOTIFICATIONS */}
+            {/* TOASTS */}
             <div className="toast-container" style={{ position: 'fixed', top: '90px', right: '1rem', zIndex: 2000, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {toastNotifications.map(notif => (
-                    <div key={notif.id} className="toast-notification" onClick={() => setShowNotifications(true)} style={{
-                        background: 'var(--color-surface)',
-                        color: 'var(--color-text-main)',
-                        padding: '1rem',
-                        borderRadius: '1rem',
-                        boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '1rem',
-                        minWidth: '300px',
-                        borderLeft: '4px solid var(--color-primary)',
-                        cursor: 'pointer',
-                        animation: 'slideInLeft 0.3s ease-out'
-                    }}>
-                        <div style={{
-                            width: '40px', height: '40px', borderRadius: '50%', background: 'var(--color-primary)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-                        }}>
+                    <div key={notif.id} className="toast-notification" onClick={() => setShowNotifications(true)} style={{ background: 'var(--color-surface)', color: 'var(--color-text-main)', padding: '1rem', borderRadius: '1rem', boxShadow: '0 10px 30px rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', gap: '1rem', minWidth: '300px', borderLeft: '4px solid var(--color-primary)', cursor: 'pointer' }}>
+                        <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                             <Bell size={20} color="white" />
                         </div>
                         <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.2rem' }}>{notif.title}</div>
+                            <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>{notif.title}</div>
                             <div style={{ fontSize: '0.8rem', opacity: 0.8 }}>Em {notif.minutesUntil} min • {format(notif.startTime, 'HH:mm')}</div>
                         </div>
                     </div>
@@ -323,16 +319,6 @@ const QuickBtn = ({ label, icon: Icon, onClick }) => (
     <div className="quick-action-btn" onClick={onClick}>
         <div className="icon-box"><Icon size={20} /></div>
         <span className="label-text">{label}</span>
-    </div>
-);
-
-const CompactAgendaItem = ({ icon: Icon, text, time }) => (
-    <div className="compact-agenda-card">
-        <div className="icon-wrapper"><Icon size={18} /></div>
-        <div className="content">
-            <div className="title">{text}</div>
-            <div className="subtext">{time}</div>
-        </div>
     </div>
 );
 

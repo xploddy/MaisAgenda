@@ -1,0 +1,291 @@
+.atm-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--color-bg);
+    z-index: 2100;
+    display: flex;
+    flex-direction: column;
+    animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(100%);
+    }
+
+    to {
+        transform: translateY(0);
+    }
+}
+
+.atm-header {
+    padding: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: white;
+    transition: background 0.3s;
+}
+
+.atm-header.expense {
+    background: #ef4444;
+}
+
+.atm-header.income {
+    background: #10b981;
+}
+
+.atm-header.transfer {
+    background: #3b82f6;
+}
+
+.atm-header.card {
+    background: #06b6d4;
+}
+
+.atm-value-section {
+    padding: 2rem 1rem;
+    text-align: left;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    transition: background 0.3s;
+}
+
+.atm-value-section.expense {
+    background: #ef4444;
+}
+
+.atm-value-section.income {
+    background: #10b981;
+}
+
+.atm-value-section.transfer {
+    background: #3b82f6;
+}
+
+.atm-value-section.card {
+    background: #06b6d4;
+}
+
+.atm-value-label {
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+.atm-value-input {
+    font-size: 2.5rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.atm-body {
+    flex: 1;
+    background: var(--color-bg);
+    border-radius: 1.5rem 1.5rem 0 0;
+    margin-top: -1.5rem;
+    padding: 1.5rem;
+    position: relative;
+    overflow-y: auto;
+}
+
+.atm-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.atm-label {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text-main);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* TOGGLE SWITCH */
+.atm-toggle {
+    width: 50px;
+    height: 28px;
+    background: #e5e7eb;
+    border-radius: 99px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.atm-toggle.checked {
+    background: #ef4444;
+    /* Default expense red */
+}
+
+.atm-toggle.checked.income {
+    background: #10b981;
+}
+
+.atm-toggle.checked.transfer {
+    background: #3b82f6;
+}
+
+.atm-toggle.checked.card {
+    background: #06b6d4;
+}
+
+.atm-toggle-handle {
+    width: 24px;
+    height: 24px;
+    background: white;
+    border-radius: 50%;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.2s;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.atm-toggle.checked .atm-toggle-handle {
+    transform: translateX(22px);
+}
+
+/* DATE TABS */
+.atm-date-tabs {
+    display: flex;
+    gap: 0.5rem;
+    background: var(--color-surface);
+    padding: 0.25rem;
+    border-radius: 99px;
+}
+
+.atm-date-tab {
+    padding: 0.5rem 1rem;
+    border-radius: 99px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.atm-date-tab.active {
+    background: white;
+    color: var(--color-text-main);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* FIELDS */
+.atm-field-card {
+    background: var(--color-surface);
+    border-radius: 1rem;
+    margin-bottom: 1rem;
+    overflow: hidden;
+}
+
+.atm-field-item {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    gap: 1rem;
+    border-bottom: 1px solid var(--color-border);
+    cursor: pointer;
+}
+
+.atm-field-item:last-child {
+    border-bottom: none;
+}
+
+.atm-icon-circle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--color-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-muted);
+}
+
+.atm-input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-size: 1rem;
+    color: var(--color-text-main);
+    outline: none;
+}
+
+/* CALCULATOR KEYPAD */
+.atm-keypad-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    border-radius: 1.5rem 1.5rem 0 0;
+    padding: 1rem;
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.1);
+    z-index: 10;
+    animation: slideUp 0.2s;
+}
+
+.atm-keypad-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+}
+
+.atm-key {
+    height: 60px;
+    font-size: 1.5rem;
+    font-weight: 600;
+    background: transparent;
+    border: none;
+    border-radius: 1rem;
+    color: var(--color-text-main);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.atm-key:active {
+    background: var(--color-bg);
+}
+
+.atm-key-action {
+    grid-column: span 2;
+    background: #ef4444;
+    /* Default */
+    color: white;
+    border-radius: 99px;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.atm-key-action.income {
+    background: #10b981;
+}
+
+.atm-key-action.transfer {
+    background: #3b82f6;
+}
+
+.atm-key-action.card {
+    background: #06b6d4;
+}
+
+.atm-key-cancel {
+    grid-column: span 2;
+    border: 1px solid var(--color-border);
+    font-size: 1rem;
+    border-radius: 99px;
+}

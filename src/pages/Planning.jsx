@@ -45,6 +45,7 @@ const Planning = ({ toggleTheme, currentTheme }) => {
 
     // Check notifications every minute
     // Check notifications every minute
+    // Check notifications every minute
     useEffect(() => {
         const interval = setInterval(() => {
             if (allEvents.length > 0) {
@@ -75,17 +76,18 @@ const Planning = ({ toggleTheme, currentTheme }) => {
 
         eventsList.forEach(event => {
             if (event.reminder_minutes && event.reminder_minutes > 0) {
+                const eventId = String(event.id);
                 const eventStart = parseISO(event.start_time);
                 const minutesUntil = differenceInMinutes(eventStart, now);
                 const reminderThreshold = event.reminder_minutes;
 
                 // Check if suspended (snoozed)
-                const snoozeTime = snoozedReminders.get(event.id);
+                const snoozeTime = snoozedReminders.get(eventId);
                 if (snoozeTime && snoozeTime > now) return;
 
-                if (minutesUntil > 0 && minutesUntil <= reminderThreshold && !dismissedReminders.has(event.id)) {
+                if (minutesUntil > 0 && minutesUntil <= reminderThreshold && !dismissedReminders.has(eventId)) {
                     const reminder = {
-                        id: event.id,
+                        id: eventId,
                         title: event.title,
                         startTime: eventStart,
                         minutesUntil,
@@ -94,7 +96,7 @@ const Planning = ({ toggleTheme, currentTheme }) => {
                     };
                     active.push(reminder);
 
-                    if (!toastedEventIds.has(event.id)) {
+                    if (!toastedEventIds.has(eventId)) {
                         newToasts.push(reminder);
                     }
                 }
@@ -116,18 +118,22 @@ const Planning = ({ toggleTheme, currentTheme }) => {
         }
     };
 
-    const dismissReminder = (id) => {
-        setDismissedReminders(prev => new Set([...prev, id]));
-        setActiveReminders(prev => prev.filter(r => r.id !== id));
-        setToastNotifications(prev => prev.filter(r => r.id !== id));
+    const dismissReminder = (id, e) => {
+        if (e) e.stopPropagation();
+        const sId = String(id);
+        setDismissedReminders(prev => new Set([...prev, sId]));
+        setActiveReminders(prev => prev.filter(r => r.id !== sId));
+        setToastNotifications(prev => prev.filter(r => r.id !== sId));
     };
 
-    const snoozeReminder = (id) => {
+    const snoozeReminder = (id, e) => {
+        if (e) e.stopPropagation();
+        const sId = String(id);
         // Snooze for 10 minutes
         const snoozeUntil = new Date(new Date().getTime() + 10 * 60000);
-        setSnoozedReminders(prev => new Map(prev).set(id, snoozeUntil));
-        setActiveReminders(prev => prev.filter(r => r.id !== id));
-        setToastNotifications(prev => prev.filter(r => r.id !== id));
+        setSnoozedReminders(prev => new Map(prev).set(sId, snoozeUntil));
+        setActiveReminders(prev => prev.filter(r => r.id !== sId));
+        setToastNotifications(prev => prev.filter(r => r.id !== sId));
     };
 
     const handleSave = async (e) => {
@@ -443,10 +449,10 @@ const Planning = ({ toggleTheme, currentTheme }) => {
                                                 {rem.location && <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><MapPin size={14} /> {rem.location}</span>}
                                             </div>
                                             <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                                <button onClick={() => snoozeReminder(rem.id)} style={{ flex: 1, padding: '0.5rem', borderRadius: '0.5rem', border: '1px solid var(--color-border)', background: 'transparent', color: 'var(--color-text-main)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', cursor: 'pointer' }}>
+                                                <button onClick={(e) => snoozeReminder(rem.id, e)} style={{ flex: 1, padding: '0.5rem', borderRadius: '0.5rem', border: '1px solid var(--color-border)', background: 'transparent', color: 'var(--color-text-main)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', cursor: 'pointer' }}>
                                                     <Clock size={14} /> Adiar 10m
                                                 </button>
-                                                <button onClick={() => dismissReminder(rem.id)} style={{ flex: 1, padding: '0.5rem', borderRadius: '0.5rem', border: 'none', background: 'rgba(239,68,68,0.1)', color: '#ef4444', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>
+                                                <button onClick={(e) => dismissReminder(rem.id, e)} style={{ flex: 1, padding: '0.5rem', borderRadius: '0.5rem', border: 'none', background: 'rgba(239,68,68,0.1)', color: '#ef4444', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>
                                                     Dispensar
                                                 </button>
                                             </div>

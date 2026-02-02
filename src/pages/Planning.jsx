@@ -18,6 +18,8 @@ const Planning = ({ toggleTheme, currentTheme }) => {
     const [editingEvent, setEditingEvent] = useState(null);
     const [deleteId, setDeleteId] = useState(null);
     const [showMenu, setShowMenu] = useState(false);
+    const [activeNotifications, setActiveNotifications] = useState([]);
+    const [dismissedNotifications, setDismissedNotifications] = useState(new Set());
     const [formData, setFormData] = useState({
         title: '', location: '', startDate: format(new Date(), 'yyyy-MM-dd'), startTime: '09:00',
         endDate: format(new Date(), 'yyyy-MM-dd'), endTime: '10:00',
@@ -34,6 +36,17 @@ const Planning = ({ toggleTheme, currentTheme }) => {
         }
     }, [selectedDate, currentMonth, location]);
 
+    // Check notifications every minute
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (allEvents.length > 0) {
+                checkNotifications(allEvents);
+            }
+        }, 60000); // Check every minute
+
+        return () => clearInterval(interval);
+    }, [allEvents, dismissedNotifications]);
+
     const fetchEvents = async () => {
         const { data, error } = await supabase
             .from('calendar_events')
@@ -43,7 +56,35 @@ const Planning = ({ toggleTheme, currentTheme }) => {
         if (data) {
             setAllEvents(data);
             setEvents(data.filter(e => isSameDay(parseISO(e.start_time), selectedDate)));
+            checkNotifications(data);
         }
+    };
+
+    const checkNotifications = (eventsList) => {
+        const now = new Date();
+        const notifications = [];
+
+        eventsList.forEach(event => {
+            if (event.reminder_minutes && event.reminder_minutes > 0) {
+                const eventStart = parseISO(event.start_time);
+                const minutesUntilEvent = differenceInMinutes(eventStart, now);
+                const reminderThreshold = event.reminder_minutes;
+
+                // Show notification if we're within the reminder window
+                if (minutesUntilEvent > 0 && minutesUntilEvent <= reminderThreshold && !dismissedNotifications.has(event.id)) {
+                    notifications.push({
+                        id: event.id,
+                        title: event.title,
+                        startTime: eventStart,
+                        minutesUntil: minutesUntilEvent,
+                        type: event.type,
+                        location: event.location
+                    });
+                }
+            }
+        });
+
+        setActiveNotifications(notifications);
     };
 
     const handleSave = async (e) => {
@@ -122,6 +163,11 @@ const Planning = ({ toggleTheme, currentTheme }) => {
 
     const closeModal = () => { setIsModalOpen(false); setEditingEvent(null); };
 
+    const dismissNotification = (eventId) => {
+        setDismissedNotifications(prev => new Set([...prev, eventId]));
+        setActiveNotifications(prev => prev.filter(n => n.id !== eventId));
+    };
+
     const handleMonthSelect = (m) => {
         setCurrentMonth(setMonth(currentMonth, m));
         setIsMonthPickerOpen(false);
@@ -164,6 +210,74 @@ const Planning = ({ toggleTheme, currentTheme }) => {
                 </div>
             </header>
 
+            {/* NOTIFICATION BANNERS */}
+            {activeNotifications.length > 0 && (
+                <div style={{ position: 'fixed', top: '80px', left: '1rem', right: '1rem', zIndex: 1000, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {activeNotifications.map(notif => (
+                        <div key={notif.id} className="notification-banner animate-fade-in" style={{
+                            background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
+                            color: 'white',
+                            padding: '1rem 1.25rem',
+                            borderRadius: '1rem',
+                            boxShadow: '0 8px 24px rgba(59, 130, 246, 0.4)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '1rem',
+                            animation: 'slideDown 0.3s ease-out'
+                        }}>
+                            <div style={{
+                                width: '48px',
+                                height: '48px',
+                                background: 'rgba(255, 255, 255, 0.2)',
+                                borderRadius: '12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0
+                            }}>
+                                <Bell size={24} color="white" />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: '0.75rem', opacity: 0.9, marginBottom: '0.25rem', fontWeight: 600 }}>
+                                    Em {notif.minutesUntil} minuto{notif.minutesUntil !== 1 ? 's' : ''}
+                                </div>
+                                <div style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '0.25rem' }}>
+                                    {notif.title}
+                                </div>
+                                <div style={{ fontSize: '0.85rem', opacity: 0.95, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <Clock size={12} />
+                                    {format(notif.startTime, 'HH:mm')}
+                                    {notif.location && (
+                                        <>
+                                            <span style={{ opacity: 0.6 }}>•</span>
+                                            <MapPin size={12} />
+                                            {notif.location}
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => dismissNotification(notif.id)}
+                                style={{
+                                    background: 'rgba(255, 255, 255, 0.2)',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    width: '32px',
+                                    height: '32px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    flexShrink: 0
+                                }}
+                            >
+                                <X size={18} color="white" />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
+
             <div className="calendar-card">
                 <div className="calendar-nav">
                     <button className="nav-arrow-btn" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}><ChevronLeft size={20} /></button>
@@ -200,7 +314,25 @@ const Planning = ({ toggleTheme, currentTheme }) => {
                                     {evt.type === 'work' ? <Briefcase size={18} /> : evt.type === 'personal' ? <Users size={18} /> : <Heart size={18} />}
                                 </div>
                                 <div className="event-info" onClick={() => openModal(evt)}>
-                                    <div className="event-title">{evt.title}</div>
+                                    <div className="event-title">
+                                        {evt.title}
+                                        {evt.reminder_minutes > 0 && (
+                                            <span style={{
+                                                marginLeft: '0.5rem',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                background: 'rgba(59, 130, 246, 0.1)',
+                                                padding: '0.15rem 0.4rem',
+                                                borderRadius: '0.5rem',
+                                                fontSize: '0.7rem',
+                                                color: 'var(--color-primary)',
+                                                fontWeight: 700
+                                            }}>
+                                                <Bell size={10} style={{ marginRight: '0.25rem' }} />
+                                                {evt.reminder_minutes}min
+                                            </span>
+                                        )}
+                                    </div>
                                     <div className="event-time"><Clock size={12} /> {format(parseISO(evt.start_time), 'HH:mm')}{evt.end_time && ` - ${format(parseISO(evt.end_time), 'HH:mm')}`}</div>
                                     {evt.location && <div className="event-loc"><MapPin size={10} /> {evt.location}</div>}
                                 </div>

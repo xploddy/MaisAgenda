@@ -34,7 +34,17 @@ const Dashboard = ({ toggleTheme, currentTheme }) => {
         try {
             const { count: tasksCount } = await supabase.from('tasks').select('*', { count: 'exact', head: true }).eq('completed', false);
             const { count: shopCount } = await supabase.from('shopping_items').select('*', { count: 'exact', head: true }).eq('bought', false);
-            const { count: finCount } = await supabase.from('transactions').select('*', { count: 'exact', head: true });
+
+            // Get current month's transactions only
+            const now = new Date();
+            const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+            const endOfCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+
+            const { count: finCount } = await supabase
+                .from('transactions')
+                .select('*', { count: 'exact', head: true })
+                .gte('date', startOfCurrentMonth)
+                .lte('date', endOfCurrentMonth);
 
             setCounts({ tasks: tasksCount || 0, shopping: shopCount || 0, finance: finCount || 0 });
 

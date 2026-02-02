@@ -3,6 +3,24 @@
     padding-bottom: 120px;
 }
 
+/* Notification Banner Animation */
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.notification-banner {
+    animation: slideDown 0.3s ease-out;
+}
+
+
 .planning-header {
     display: flex;
     justify-content: space-between;

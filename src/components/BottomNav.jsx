@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, List, Calendar, MoreHorizontal, Plus, TrendingUp, TrendingDown, CreditCard, ArrowLeftRight } from 'lucide-react';
+import { Home, List, Calendar, Plus, TrendingUp, TrendingDown, CreditCard, ArrowLeftRight, CheckSquare, Clock } from 'lucide-react';
 import './BottomNav.css';
 import AddTransactionModal from './AddTransactionModal';
+import AddTaskModal from './AddTaskModal';
+import AddPlanningModal from './AddPlanningModal';
 
 const BottomNav = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -18,9 +20,17 @@ const BottomNav = () => {
             {isMenuOpen && (
                 <div className="fab-menu-overlay" onClick={() => setIsMenuOpen(false)}>
                     <div className="fab-options-fan" onClick={e => e.stopPropagation()}>
+                        <div className="fab-option-btn" onClick={() => openModal('planning')}>
+                            <div className="fab-option-icon planning"><Clock size={24} /></div>
+                            <span>Evento</span>
+                        </div>
+                        <div className="fab-option-btn" onClick={() => openModal('task')}>
+                            <div className="fab-option-icon task"><CheckSquare size={24} /></div>
+                            <span>Tarefa</span>
+                        </div>
                         <div className="fab-option-btn" onClick={() => openModal('transfer')}>
                             <div className="fab-option-icon transfer"><ArrowLeftRight size={24} /></div>
-                            <span>Transferência</span>
+                            <span>Transferir</span>
                         </div>
                         <div className="fab-option-btn" onClick={() => openModal('income')}>
                             <div className="fab-option-icon income"><TrendingUp size={24} /></div>
@@ -32,13 +42,17 @@ const BottomNav = () => {
                         </div>
                         <div className="fab-option-btn" onClick={() => openModal('card')}>
                             <div className="fab-option-icon card"><CreditCard size={24} /></div>
-                            <span>Despesa Cartão</span>
+                            <span>Cartão</span>
                         </div>
                     </div>
                 </div>
             )}
 
-            {activeModal && <AddTransactionModal type={activeModal} onClose={() => setActiveModal(null)} />}
+            {activeModal === 'task' && <AddTaskModal onClose={() => setActiveModal(null)} />}
+            {activeModal === 'planning' && <AddPlanningModal onClose={() => setActiveModal(null)} />}
+            {['expense', 'income', 'transfer', 'card'].includes(activeModal) && (
+                <AddTransactionModal type={activeModal} onClose={() => setActiveModal(null)} />
+            )}
 
             <nav className="bottom-nav">
                 <NavLink to="/" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
@@ -46,9 +60,9 @@ const BottomNav = () => {
                     <span className="nav-label">Principal</span>
                 </NavLink>
 
-                <NavLink to="/finance" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-                    <List size={24} strokeWidth={2} />
-                    <span className="nav-label">Transações</span>
+                <NavLink to="/tasks" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                    <CheckSquare size={24} strokeWidth={2} />
+                    <span className="nav-label">Tarefas</span>
                 </NavLink>
 
                 <div className="fab-container">
@@ -57,14 +71,14 @@ const BottomNav = () => {
                     </button>
                 </div>
 
-                <NavLink to="/planning" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-                    <Calendar size={24} strokeWidth={2} />
-                    <span className="nav-label">Planejamento</span>
+                <NavLink to="/finance" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                    <TrendingUp size={24} strokeWidth={2} />
+                    <span className="nav-label">Transações</span>
                 </NavLink>
 
-                <NavLink to="/profile" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-                    <MoreHorizontal size={24} strokeWidth={2} />
-                    <span className="nav-label">Mais</span>
+                <NavLink to="/planning" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                    <Calendar size={24} strokeWidth={2} />
+                    <span className="nav-label">Plano</span>
                 </NavLink>
             </nav>
         </>

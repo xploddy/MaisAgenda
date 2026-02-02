@@ -46,6 +46,17 @@
     background: #06b6d4;
 }
 
+.atm-header.task {
+    background: #8b5cf6;
+}
+
+/* Purple for Tasks */
+.atm-header.planning {
+    background: #f59e0b;
+}
+
+/* Amber for Planning */
+
 .atm-value-section {
     padding: 2rem 1rem;
     text-align: left;
@@ -72,17 +83,41 @@
     background: #06b6d4;
 }
 
+.atm-value-section.task {
+    background: #8b5cf6;
+}
+
+.atm-value-section.planning {
+    background: #f59e0b;
+}
+
+
 .atm-value-label {
     font-size: 0.9rem;
     opacity: 0.9;
 }
 
 .atm-value-input {
-    font-size: 2.5rem;
+    font-size: 2rem;
     font-weight: 700;
     display: flex;
     align-items: center;
     gap: 0.5rem;
+}
+
+/* For text inputs in header (Task title) */
+.atm-value-input-text {
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 1.75rem;
+    font-weight: 700;
+    width: 100%;
+    outline: none;
+}
+
+.atm-value-input-text::placeholder {
+    color: rgba(255, 255, 255, 0.6);
 }
 
 .atm-body {
@@ -122,9 +157,8 @@
     transition: background 0.2s;
 }
 
-.atm-toggle.checked {
+.atm-toggle.checked.expense {
     background: #ef4444;
-    /* Default expense red */
 }
 
 .atm-toggle.checked.income {
@@ -137,6 +171,14 @@
 
 .atm-toggle.checked.card {
     background: #06b6d4;
+}
+
+.atm-toggle.checked.task {
+    background: #8b5cf6;
+}
+
+.atm-toggle.checked.planning {
+    background: #f59e0b;
 }
 
 .atm-toggle-handle {
@@ -281,6 +323,14 @@
 
 .atm-key-action.card {
     background: #06b6d4;
+}
+
+.atm-key-action.task {
+    background: #8b5cf6;
+}
+
+.atm-key-action.planning {
+    background: #f59e0b;
 }
 
 .atm-key-cancel {

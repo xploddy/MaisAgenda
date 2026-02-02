@@ -1,49 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, Tooltip } from 'recharts';
-import { TrendingUp, TrendingDown, DollarSign, Plus, Minus, X, ChevronLeft, CreditCard, Trash2, Edit2, Save, Search, Menu, Filter, Calendar, AlertCircle, CheckCircle2, RotateCcw, LogOut, User, Moon, Sun, ChevronRight, Check } from 'lucide-react';
+import { TrendingUp, TrendingDown, CreditCard, ChevronLeft, ChevronRight, Menu, Search, X, Check, Trash2, LogOut, User, Moon, Sun } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { format, parseISO, startOfMonth, endOfMonth, eachMonthOfInterval, subMonths, addMonths, isSameMonth, setMonth, subYears, addYears } from 'date-fns';
+import { format, parseISO, startOfMonth, endOfMonth, isSameMonth, subMonths, addMonths, subYears, addYears, setMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '../supabaseClient';
 import './Finance.css';
+import AddTransactionModal from '../components/AddTransactionModal';
 
 const COLORS = [
-    '#3b82f6', // azul
-    '#10b981', // verde
-    '#f59e0b', // amarelo
-    '#ef4444', // vermelho
-    '#8b5cf6', // roxo
-    '#06b6d4', // ciano
-    '#22c55e', // verde claro
-    '#eab308', // amarelo escuro
-    '#f97316', // laranja
-    '#ec4899', // rosa
-    '#64748b', // cinza
-    '#14b8a6'  // teal
-];
-
-const CATEGORIES = [
-    'Alimentação',
-    'Assinaturas',
-    'Educação',
-    'Investimento',
-    'Lazer',
-    'Moradia',
-    'Outros',
-    'Pessoal',
-    'Presentes',
-    'Saúde',
-    'Salário',
-    'Trabalho',
-    'Transporte',
-    'Vendas'
+    '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4',
+    '#22c55e', '#eab308', '#f97316', '#ec4899', '#64748b', '#14b8a6'
 ];
 
 const Finance = ({ toggleTheme, currentTheme }) => {
     const navigate = useNavigate();
     const [transactions, setTransactions] = useState([]);
     const [filteredTransactions, setFilteredTransactions] = useState([]);
-    const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTrans, setEditingTrans] = useState(null);
     const [deleteItem, setDeleteItem] = useState(null);
     const [showMenu, setShowMenu] = useState(false);
@@ -51,12 +24,6 @@ const Finance = ({ toggleTheme, currentTheme }) => {
     const [filterType, setFilterType] = useState('all');
     const [selectedMonth, setSelectedMonth] = useState(new Date());
     const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
-    const [addToPlanning, setAddToPlanning] = useState(true);
-    const [formData, setFormData] = useState({
-        title: '', amount: '', type: 'expense', category: 'Outros',
-        status: 'paid', date: format(new Date(), 'yyyy-MM-dd'),
-        repeatCount: 1
-    });
 
     useEffect(() => {
         fetchTransactions();
@@ -85,63 +52,6 @@ const Finance = ({ toggleTheme, currentTheme }) => {
         setFilteredTransactions(docs);
     };
 
-    const handleSave = async (e) => {
-        e.preventDefault();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        const count = formData.repeatCount;
-        const baseDate = new Date(`${formData.date}T12:00:00`);
-        const groupId = count > 1 ? crypto.randomUUID() : null;
-
-        const transactionPayloads = [];
-        const eventPayloads = [];
-
-        for (let i = 0; i < count; i++) {
-            const date = new Date(baseDate);
-            date.setMonth(date.getMonth() + i);
-            const dateStr = date.toISOString().split('T')[0];
-            const displayTitle = formData.title + (count > 1 ? ` (${i + 1}/${count})` : '');
-
-            transactionPayloads.push({
-                title: displayTitle,
-                amount: parseFloat(formData.amount),
-                type: formData.type.toLowerCase(),
-                category: formData.category,
-                status: formData.status,
-                date: dateStr,
-                recurring_group_id: groupId,
-                user_id: user.id
-            });
-
-            if (addToPlanning) {
-                eventPayloads.push({
-                    title: `💰 ${displayTitle} (R$ ${formData.amount})`,
-                    start_time: date.toISOString(),
-                    type: formData.type === 'income' ? 'health' : 'work',
-                    description: `Lançamento financeiro: ${formData.category}. Status: ${formData.status === 'paid' ? 'Liquidada' : 'Pendente'}`,
-                    user_id: user.id
-                });
-            }
-        }
-
-        try {
-            if (editingTrans) {
-                await supabase.from('transactions').update(transactionPayloads[0]).eq('id', editingTrans.id);
-            } else {
-                await supabase.from('transactions').insert(transactionPayloads);
-                if (addToPlanning && eventPayloads.length > 0) {
-                    await supabase.from('calendar_events').insert(eventPayloads);
-                }
-            }
-            fetchTransactions();
-            closeModal();
-        } catch (err) {
-            console.error(err);
-            alert("Erro ao salvar.");
-        }
-    };
-
     const deleteTransaction = async (scope) => {
         if (!deleteItem) return;
         try {
@@ -161,37 +71,12 @@ const Finance = ({ toggleTheme, currentTheme }) => {
         }
     };
 
-    const openModal = (trans = null) => {
-        if (trans) {
-            setEditingTrans(trans);
-            setFormData({
-                title: trans.title, amount: trans.amount, type: trans.type.toLowerCase(),
-                category: trans.category, status: trans.status || 'paid',
-                date: trans.date, repeatCount: 1
-            });
-        } else {
-            setEditingTrans(null);
-            setFormData({
-                title: '', amount: '', type: 'expense', category: 'Outros',
-                status: 'paid', date: format(new Date(), 'yyyy-MM-dd'), repeatCount: 1
-            });
-        }
-        setAddToPlanning(true);
-        setIsModalOpen(true);
-    };
-
-    const closeModal = () => { setIsModalOpen(false); setEditingTrans(null); };
-
     const handleMonthSelect = (m) => {
         setSelectedMonth(setMonth(selectedMonth, m));
         setIsMonthPickerOpen(false);
     };
 
-    const adjustRepeat = (val) => {
-        setFormData(prev => ({ ...prev, repeatCount: Math.max(1, Math.min(60, prev.repeatCount + val)) }));
-    };
-
-    // Calculate Data for Charts
+    // Charts
     const incomeTotal = filteredTransactions.filter(t => t.type.toLowerCase() === 'income').reduce((acc, t) => acc + Number(t.amount), 0);
     const expenseTotal = filteredTransactions.filter(t => t.type.toLowerCase() === 'expense').reduce((acc, t) => acc + Number(t.amount), 0);
     const balanceTotal = incomeTotal - expenseTotal;
@@ -242,9 +127,7 @@ const Finance = ({ toggleTheme, currentTheme }) => {
                 </div>
             </div>
 
-            {/* INTEGRATED CARD: MONTH NAV + CHARTS */}
             <div className="chart-container-modern card" style={{ padding: '0 0 1.5rem 0', overflow: 'hidden' }}>
-                {/* Integrated Month Navigation at the Top of the Card */}
                 <div className="calendar-nav" style={{ padding: '1.25rem', borderBottom: '1px solid var(--color-border)', marginBottom: '1.5rem', background: 'var(--color-input-bg)', borderRadius: '1.25rem 1.25rem 0 0' }}>
                     <button className="nav-arrow-btn" onClick={() => setSelectedMonth(subMonths(selectedMonth, 1))}><ChevronLeft size={20} /></button>
                     <span className="month-label clickable" onClick={() => setIsMonthPickerOpen(true)} style={{ fontSize: '1rem', fontWeight: 800 }}>
@@ -255,7 +138,6 @@ const Finance = ({ toggleTheme, currentTheme }) => {
 
                 <div style={{ padding: '0 1.5rem' }}>
                     <h2 style={{ fontSize: '1rem', textAlign: 'center', marginBottom: '1.5rem', fontWeight: 800, color: 'var(--color-text-main)' }}>Despesas do Mês</h2>
-
                     {pieData.length === 0 ? (
                         <div className="empty-state" style={{ minHeight: '200px' }}>Sem despesas este mês.</div>
                     ) : (
@@ -264,12 +146,7 @@ const Finance = ({ toggleTheme, currentTheme }) => {
                                 <div style={{ width: '160px', height: '160px' }}>
                                     <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
-                                            <Pie
-                                                data={pieData}
-                                                innerRadius={45}
-                                                outerRadius={65}
-                                                dataKey="value"
-                                                paddingAngle={2}                                            >
+                                            <Pie data={pieData} innerRadius={45} outerRadius={65} dataKey="value" paddingAngle={2}>
                                                 {pieData.map((_, idx) => <Cell key={idx} fill={COLORS[idx % COLORS.length]} />)}
                                             </Pie>
                                         </PieChart>
@@ -284,7 +161,6 @@ const Finance = ({ toggleTheme, currentTheme }) => {
                                     ))}
                                 </div>
                             </div>
-
                             <div style={{ width: '100%', height: '120px', marginTop: '1rem' }}>
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={pieData}>
@@ -300,7 +176,6 @@ const Finance = ({ toggleTheme, currentTheme }) => {
                 </div>
             </div>
 
-            {/* MONTH PICKER OVERLAY (Needs to be global-ish or relative to page) */}
             {isMonthPickerOpen && (
                 <div className="month-picker-overlay animate-fade-in" style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
                     <div className="calendar-card" style={{ width: '100%', maxWidth: '340px' }}>
@@ -339,7 +214,7 @@ const Finance = ({ toggleTheme, currentTheme }) => {
                             <div className={`trans-icon-bg ${t.type.toLowerCase()}`}>
                                 {t.type.toLowerCase() === 'income' ? <TrendingUp size={18} /> : <TrendingDown size={18} />}
                             </div>
-                            <div className="trans-core" onClick={() => openModal(t)}>
+                            <div className="trans-core" onClick={() => setEditingTrans(t)}>
                                 <div className="trans-name">{t.title}</div>
                                 <div className="trans-meta-row">
                                     <span className="trans-sub">{t.category}</span>
@@ -358,65 +233,29 @@ const Finance = ({ toggleTheme, currentTheme }) => {
                 }
             </section>
 
-            <button className="fab" onClick={() => openModal()}><Plus size={32} /></button>
+            {/* Removed FAB to use Navbar */}
 
-            {isModalOpen && (
-                <div className="modal-overlay" onClick={closeModal} style={{ alignItems: 'center' }}>
-                    <div className="modal-content scrollable-modal" onClick={e => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h3 className="modal-title"><CreditCard size={20} color="var(--color-primary)" /> {editingTrans ? 'Editar' : 'Novo Lancamento'}</h3>
-                            <button className="modal-close-btn" onClick={closeModal}><X size={20} /></button>
-                        </div>
-                        <form onSubmit={handleSave}>
-                            <label className="form-label">Descrição</label>
-                            <div className="input-container"><Plus size={20} color="var(--color-text-muted)" /><input autoFocus type="text" className="input-field" placeholder="Ex: Aluguel" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} required /></div>
-
-                            <label className="form-label">Valor (R$)</label>
-                            <div className="input-container"><DollarSign size={24} color="var(--color-primary)" /><input type="number" step="0.01" className="input-field" style={{ fontSize: '1.75rem', fontWeight: '800' }} value={formData.amount} onChange={e => setFormData({ ...formData, amount: e.target.value })} required /></div>
-
-                            <div className="form-grid">
-                                <div><label className="form-label">Data</label><div className="input-container"><input type="date" className="input-field minimal" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} required /></div></div>
-                                <div><label className="form-label">Tipo</label><div className="input-container"><select className="input-field minimal" value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value })}><option value="expense">Despesa</option><option value="income">Receita</option></select></div></div>
-                            </div>
-
-                            <div className="form-grid">
-                                <div><label className="form-label">Categoria</label><div className="input-container"><select className="input-field minimal" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></div></div>
-                                <div><label className="form-label">Situação</label><div className="input-container"><select className="input-field minimal" value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })}><option value="paid">Liquidada</option><option value="pending">Pendente</option></select></div></div>
-                            </div>
-
-                            {!editingTrans && (
-                                <>
-                                    <label className="form-label">Repetir Mensalmente</label>
-                                    <div className="counter-container">
-                                        <button type="button" className="counter-btn" onClick={() => adjustRepeat(-1)}><Minus size={18} /></button>
-                                        <span className="counter-value">{formData.repeatCount} x</span>
-                                        <button type="button" className="counter-btn" onClick={() => adjustRepeat(1)}><Plus size={18} /></button>
-                                    </div>
-
-                                    <div className="checkbox-row" style={{ marginTop: '1.5rem' }} onClick={() => setAddToPlanning(!addToPlanning)}>
-                                        <div className={`custom-checkbox ${addToPlanning ? 'checked' : ''}`}>{addToPlanning && <Check size={12} color="white" strokeWidth={4} />}</div>
-                                        <span>Registrar no Planejamento</span>
-                                    </div>
-                                </>
-                            )}
-
-                            <button type="submit" className="btn btn-primary btn-submit" style={{ marginTop: '1.5rem', background: formData.type === 'expense' ? '#ef4444' : '#10b981' }}><Save size={20} /> Salvar Movimentação</button>
-                        </form>
-                    </div>
-                </div>
+            {/* Editing Modal */}
+            {editingTrans && (
+                <AddTransactionModal
+                    trans={editingTrans}
+                    type={editingTrans.type.toLowerCase()}
+                    onClose={() => { setEditingTrans(null); fetchTransactions(); }}
+                />
             )}
 
+            {/* DELETE MODAL */}
             {deleteItem && (
                 <div className="modal-overlay" style={{ alignItems: 'center' }}>
                     <div className="modal-content animate-fade-in" style={{ textAlign: 'center', maxWidth: '360px' }}>
-                        <div style={{ width: '64px', height: '64px', background: '#fee2e2', color: '#ef4444', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}><AlertCircle size={32} /></div>
+                        <div style={{ width: '64px', height: '64px', background: '#fee2e2', color: '#ef4444', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}><Trash2 size={32} /></div>
 
                         <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.5rem' }}>Excluir Registro?</h3>
 
                         {deleteItem.recurring_group_id ? (
                             <>
                                 <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '2rem' }}>
-                                    Este item é recorrente. Você pode excluir apenas este mês ou cancelar todas as parcelas futuras:
+                                    Item recorrente. Como deseja excluir?
                                 </p>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                     <button className="btn btn-primary" style={{ background: '#ef4444' }} onClick={() => deleteTransaction('future')}>Excluir Este e Futuros</button>
@@ -426,9 +265,9 @@ const Finance = ({ toggleTheme, currentTheme }) => {
                             </>
                         ) : (
                             <>
-                                <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '2rem' }}>Esta movimentação será apagada permanentemente.</p>
+                                <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '2rem' }}>Ação permanente.</p>
                                 <div style={{ display: 'flex', gap: '1rem' }}>
-                                    <button className="btn" style={{ flex: 1, background: 'var(--color-bg)' }} onClick={() => setDeleteItem(null)}>Voltar</button>
+                                    <button className="btn" style={{ flex: 1, background: 'var(--color-bg)' }} onClick={() => setDeleteItem(null)}>Cancelar</button>
                                     <button className="btn btn-primary" style={{ flex: 1, background: '#ef4444' }} onClick={() => deleteTransaction('one')}>Excluir</button>
                                 </div>
                             </>

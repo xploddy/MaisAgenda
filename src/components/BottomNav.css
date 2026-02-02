@@ -79,15 +79,17 @@
     flex-direction: column;
     align-items: center;
     justify-content: flex-end;
-    padding-bottom: 110px;
+    padding-bottom: 120px;
     animation: fadeIn 0.2s;
 }
 
 .fab-options-fan {
-    display: flex;
-    gap: 1.5rem;
-    align-items: center;
-    justify-content: center;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    row-gap: 2rem;
+    column-gap: 1.5rem;
+    justify-items: center;
+    padding: 0 1rem;
 }
 
 .fab-option-btn {
@@ -99,22 +101,11 @@
     color: white;
     font-size: 0.75rem;
     font-weight: 600;
+    text-align: center;
 }
 
-.fab-option-btn:nth-child(1) {
-    animation: popUp 0.3s 0.1s backwards;
-}
-
-.fab-option-btn:nth-child(2) {
-    animation: popUp 0.3s 0.05s backwards;
-}
-
-.fab-option-btn:nth-child(3) {
-    animation: popUp 0.3s 0.0s backwards;
-}
-
-.fab-option-btn:nth-child(4) {
-    animation: popUp 0.3s 0.05s backwards;
+.fab-option-btn {
+    animation: popUp 0.3s backwards;
 }
 
 .fab-option-icon {
@@ -148,6 +139,14 @@
 
 .fab-option-icon.transfer {
     color: #3b82f6;
+}
+
+.fab-option-icon.task {
+    color: #8b5cf6;
+}
+
+.fab-option-icon.planning {
+    color: #f59e0b;
 }
 
 @keyframes popUp {

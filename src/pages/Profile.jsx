@@ -222,7 +222,7 @@ const Profile = ({ toggleTheme, currentTheme }) => {
     const [nickname, setNickname] = useState('');
     const [defaultAccountId, setDefaultAccountId] = useState(localStorage.getItem('defaultAccountId') || null);
     const [activeTab, setActiveTab] = useState('manager'); // manager, track, about
-    const [stats, setStats] = useState({ savings: 0, rate: 0, topCats: [] });
+    const [stats, setStats] = useState({ savings: 0, rate: 0, topCats: [], totalInc: 0, totalExp: 0, balance: 0 });
 
     useEffect(() => {
         const fetchStats = async () => {
@@ -271,9 +271,9 @@ const Profile = ({ toggleTheme, currentTheme }) => {
                     const cat = t.category || 'Outros';
                     catMap[cat] = (catMap[cat] || 0) + Number(t.amount);
                 });
-                const topCats = Object.entries(catMap).sort((a, b) => b[1] - a[1]).slice(0, 3);
+                const topCats = Object.entries(catMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
-                setStats({ savings, rate, topCats });
+                setStats({ savings, rate, topCats, totalInc: inc, totalExp: exp, balance: inc - exp });
             }
         };
         fetchStats();
@@ -682,10 +682,21 @@ const Profile = ({ toggleTheme, currentTheme }) => {
             {activeTab === 'track' && (
                 <div className="dashboard-section" style={{ padding: '0 1rem' }}>
                     <div className="card" style={{ marginBottom: '1rem', background: 'var(--color-primary)', color: 'white' }}>
-                        <div style={{ opacity: 0.8, fontSize: '0.85rem' }}>Economia do Mês</div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: 800 }}>{stats.savings.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</div>
+                        <div style={{ opacity: 0.8, fontSize: '0.85rem' }}>Balanço do Mês</div>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 800 }}>{stats.balance.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</div>
                         <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <TrendingUp size={14} /> Taxa de Poupança: {stats.rate.toFixed(1)}%
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                        <div className="card" style={{ padding: '1rem' }}>
+                            <div style={{ fontSize: '0.75rem', opacity: 0.6, marginBottom: '0.25rem' }}>Entradas</div>
+                            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#10b981' }}>{stats.totalInc.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</div>
+                        </div>
+                        <div className="card" style={{ padding: '1rem' }}>
+                            <div style={{ fontSize: '0.75rem', opacity: 0.6, marginBottom: '0.25rem' }}>Saídas</div>
+                            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#ef4444' }}>{stats.totalExp.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</div>
                         </div>
                     </div>
 
@@ -695,10 +706,13 @@ const Profile = ({ toggleTheme, currentTheme }) => {
                             <div style={{ textAlign: 'center', padding: '1rem', opacity: 0.5 }}>Sem gastos registrados este mês.</div>
                         ) : (
                             stats.topCats.map(([cat, val], idx) => (
-                                <div key={cat} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 0', borderBottom: idx < 2 ? '1px solid var(--color-border)' : 'none' }}>
+                                <div key={cat} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 0', borderBottom: idx < stats.topCats.length - 1 ? '1px solid var(--color-border)' : 'none' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                         <div className="atm-icon-circle" style={{ width: 32, height: 32 }}><Tag size={16} /></div>
-                                        <span style={{ fontWeight: 600 }}>{cat}</span>
+                                        <div>
+                                            <div style={{ fontWeight: 600 }}>{cat}</div>
+                                            <div style={{ fontSize: '0.7rem', opacity: 0.5 }}>{((val / stats.totalExp) * 100).toFixed(0)}% do total</div>
+                                        </div>
                                     </div>
                                     <span style={{ fontWeight: 700 }}>{val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                                 </div>
@@ -706,9 +720,9 @@ const Profile = ({ toggleTheme, currentTheme }) => {
                         )}
                     </div>
 
-                    <div style={{ marginTop: '2rem', textAlign: 'center', opacity: 0.6 }}>
+                    <div style={{ marginTop: '2rem', textAlign: 'center', opacity: 0.6, paddingBottom: '2rem' }}>
                         <TrendingUp size={48} style={{ margin: '0 auto 1rem', display: 'block' }} />
-                        <p style={{ fontSize: '0.9rem' }}>Mais relatórios detalhados em breve nas próximas atualizações!</p>
+                        <p style={{ fontSize: '0.9rem' }}>Mais relatórios detalhados nas próximas versões!</p>
                     </div>
                 </div>
             )}

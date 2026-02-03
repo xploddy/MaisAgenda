@@ -17,11 +17,13 @@ function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
+      if (session) fetchProfileTheme(session.user.id);
       setLoading(false)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
+      if (session) fetchProfileTheme(session.user.id);
     })
 
     document.documentElement.setAttribute('data-theme', theme);
@@ -30,10 +32,35 @@ function App() {
     return () => subscription.unsubscribe()
   }, [theme])
 
-  const toggleTheme = () => {
+  const fetchProfileTheme = async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('theme')
+        .eq('id', userId)
+        .single();
+
+      if (data && data.theme) {
+        setTheme(data.theme);
+        localStorage.setItem('theme', data.theme);
+      }
+    } catch (error) {
+      console.log('Error fetching theme:', error);
+    }
+  };
+
+  const toggleTheme = async () => {
     const newTheme = theme === 'light' ? 'dark' : 'light'
     setTheme(newTheme)
     localStorage.setItem('theme', newTheme)
+
+    if (session?.user?.id) {
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({ id: session.user.id, theme: newTheme });
+
+      if (error) console.log('Error saving theme:', error);
+    }
   }
 
   if (loading) {

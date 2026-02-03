@@ -9,10 +9,15 @@ import * as XLSX from 'xlsx';
 import './Profile.css';
 
 // Generic List Manager for Local Settings (simulating DB tables)
-const ListManager = ({ title, storageKey, defaultItems, itemRender, onBack }) => {
+const ListManager = ({ title, storageKey, defaultItems, itemRender, onBack, onSetDefault, defaultId }) => {
     const [items, setItems] = useState([]);
-    const [isAddOpen, setIsAddOpen] = useState(false);
-    const [newItem, setNewItem] = useState({ name: '', value: '' });
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingItem, setEditingItem] = useState(null);
+    const [formData, setFormData] = useState({ name: '', value: '', current: '0' });
+
+    // For Goal Deposit
+    const [depositGoalId, setDepositGoalId] = useState(null);
+    const [depositAmount, setDepositAmount] = useState('');
 
     useEffect(() => {
         const stored = localStorage.getItem(storageKey);
@@ -25,53 +30,180 @@ const ListManager = ({ title, storageKey, defaultItems, itemRender, onBack }) =>
         localStorage.setItem(storageKey, JSON.stringify(newItems));
     };
 
-    const handleAdd = () => {
-        if (!newItem.name) return;
-        const updated = [...items, { id: Date.now(), ...newItem }];
+    const handleOpenAdd = () => {
+        setEditingItem(null);
+        setFormData({ name: '', value: '', current: '0' });
+        setIsModalOpen(true);
+    };
+
+    const handleOpenEdit = (item) => {
+        setEditingItem(item);
+        setFormData({
+            name: item.name,
+            value: item.value || '',
+            current: item.current || '0'
+        });
+        setIsModalOpen(true);
+    };
+
+    const handleSave = () => {
+        if (!formData.name) return;
+
+        let updated;
+        if (editingItem) {
+            updated = items.map(i => i.id === editingItem.id ? { ...i, ...formData } : i);
+        } else {
+            updated = [...items, { id: Date.now(), ...formData }];
+        }
+
         saveItems(updated);
-        setNewItem({ name: '', value: '' });
-        setIsAddOpen(false);
+        setIsModalOpen(false);
     };
 
     const handleDelete = (id) => {
-        if (confirm('Tem certeza?')) {
-            saveItems(items.filter(i => i.id !== id));
+        if (confirm('Tem certeza que deseja excluir?')) {
+            const updated = items.filter(i => i.id !== id);
+            saveItems(updated);
+            if (defaultId === id && onSetDefault) {
+                onSetDefault(updated.length > 0 ? updated[0].id : null);
+            }
         }
     };
+
+    const handleDeposit = () => {
+        if (!depositAmount || isNaN(parseFloat(depositAmount))) return;
+        const amount = parseFloat(depositAmount);
+
+        const updated = items.map(i => {
+            if (i.id === depositGoalId) {
+                const current = parseFloat(i.current || 0);
+                return { ...i, current: (current + amount).toString() };
+            }
+            return i;
+        });
+
+        saveItems(updated);
+        setDepositGoalId(null);
+        setDepositAmount('');
+    };
+
+    const isGoal = storageKey.includes('goals');
+    const isAccount = storageKey.includes('accounts');
 
     return (
         <div className="profile-page animate-fade-in">
             <header className="options-header">
                 <button className="icon-btn-ghost" onClick={onBack}><ChevronLeft size={24} /></button>
                 <h1 className="options-title">{title}</h1>
-                <button className="icon-btn-ghost" onClick={() => setIsAddOpen(true)}><Plus size={24} /></button>
+                <button className="icon-btn-ghost" onClick={handleOpenAdd}><Plus size={24} /></button>
             </header>
             <div className="menu-section">
                 {items.length === 0 ? <div style={{ padding: '1rem', opacity: 0.5, textAlign: 'center' }}>Nenhum item.</div> :
-                    items.map(item => (
-                        <div key={item.id} className="menu-item" style={{ justifyContent: 'space-between', cursor: 'default' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
-                                {itemRender ? itemRender(item) : <span className="menu-text">{item.name}</span>}
+                    items.map(item => {
+                        // Custom Render for Goals with Progress
+                        if (isGoal) {
+                            const target = parseFloat(item.value || 0);
+                            const current = parseFloat(item.current || 0);
+                            const percent = target > 0 ? Math.min(100, (current / target) * 100) : 0;
+
+                            return (
+                                <div key={item.id} className="menu-item" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '0.5rem', padding: '1rem', height: 'auto' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div style={{ fontWeight: 600 }}>{item.name}</div>
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <button onClick={() => setDepositGoalId(item.id)} style={{ background: 'var(--color-primary)', color: 'white', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Adicionar Valor"><Plus size={16} /></button>
+                                            <button onClick={() => handleOpenEdit(item)} style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', padding: '0.2rem' }}><Edit2 size={18} /></button>
+                                            <button onClick={() => handleDelete(item.id)} style={{ background: 'none', border: 'none', color: '#ef4444', padding: '0.2rem' }}><Trash2 size={18} /></button>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', opacity: 0.8 }}>
+                                        <span>{current.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                        <span>{target.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                    </div>
+                                    <div style={{ height: 6, background: 'var(--color-border)', borderRadius: 3, overflow: 'hidden' }}>
+                                        <div style={{ width: `${percent}%`, background: 'var(--color-primary)', height: '100%' }}></div>
+                                    </div>
+                                    <div style={{ textAlign: 'right', fontSize: '0.75rem', opacity: 0.6 }}>{percent.toFixed(1)}%</div>
+                                </div>
+                            );
+                        }
+
+                        // Default Render
+                        return (
+                            <div key={item.id} className="menu-item" style={{ justifyContent: 'space-between', cursor: 'default' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
+                                    {isAccount && (
+                                        <div
+                                            title={defaultId === item.id ? "Conta Padrão" : "Definir como Padrão"}
+                                            onClick={() => onSetDefault && onSetDefault(item.id)}
+                                            style={{ cursor: 'pointer', color: defaultId === item.id ? 'var(--color-primary)' : 'var(--color-text-muted)', opacity: defaultId === item.id ? 1 : 0.3 }}
+                                        >
+                                            <Check size={20} />
+                                        </div>
+                                    )}
+                                    {itemRender ? itemRender(item) : <span className="menu-text">{item.name}</span>}
+                                </div>
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <button onClick={() => handleOpenEdit(item)} style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', padding: '0.5rem' }}><Edit2 size={18} /></button>
+                                    <button onClick={() => handleDelete(item.id)} style={{ background: 'none', border: 'none', color: '#ef4444', padding: '0.5rem' }}><Trash2 size={18} /></button>
+                                </div>
                             </div>
-                            <button onClick={() => handleDelete(item.id)} style={{ background: 'none', border: 'none', color: '#ef4444', padding: '0.5rem' }}><Trash2 size={18} /></button>
-                        </div>
-                    ))
+                        );
+                    })
                 }
             </div>
 
-            {isAddOpen && (
+            {/* Modal Add/Edit */}
+            {isModalOpen && (
                 <div className="modal-overlay" style={{ alignItems: 'flex-end' }}>
                     <div className="modal-content" style={{ borderRadius: '1.5rem 1.5rem 0 0', padding: '1.5rem' }}>
-                        <h3 className="modal-title" style={{ marginBottom: '1rem' }}>Novo Item</h3>
-                        <input className="input-field" placeholder="Nome" value={newItem.name} onChange={e => setNewItem({ ...newItem, name: e.target.value })} autoFocus style={{ marginBottom: '1rem' }} />
-                        {storageKey.includes('accounts') || storageKey.includes('goals') || storageKey.includes('invest') ? (
-                            <input className="input-field" type="number" placeholder="Valor / Saldo Inicial (R$)" value={newItem.value} onChange={e => setNewItem({ ...newItem, value: e.target.value })} style={{ marginBottom: '1rem' }} />
-                        ) : null}
-                        {storageKey.includes('cards') ? (
-                            <input className="input-field" type="number" placeholder="Limite (R$)" value={newItem.value} onChange={e => setNewItem({ ...newItem, value: e.target.value })} style={{ marginBottom: '1rem' }} />
-                        ) : null}
-                        <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleAdd}>Salvar</button>
-                        <button className="btn" style={{ width: '100%', marginTop: '0.5rem', background: 'transparent' }} onClick={() => setIsAddOpen(false)}>Cancelar</button>
+                        <h3 className="modal-title" style={{ marginBottom: '1rem' }}>{editingItem ? 'Editar' : 'Novo'} Item</h3>
+                        <input className="input-field" placeholder="Nome" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} autoFocus style={{ marginBottom: '1rem' }} />
+
+                        {(storageKey.includes('accounts') || storageKey.includes('invest') || storageKey.includes('goals') || storageKey.includes('cards')) && (
+                            <input
+                                className="input-field"
+                                type="number"
+                                placeholder={storageKey.includes('goals') ? "Meta (R$)" : storageKey.includes('cards') ? "Limite (R$)" : "Saldo (R$)"}
+                                value={formData.value}
+                                onChange={e => setFormData({ ...formData, value: e.target.value })}
+                                style={{ marginBottom: '1rem' }}
+                            />
+                        )}
+
+                        {storageKey.includes('goals') && (
+                            <input
+                                className="input-field"
+                                type="number"
+                                placeholder="Valor Atual (R$)"
+                                value={formData.current}
+                                onChange={e => setFormData({ ...formData, current: e.target.value })}
+                                style={{ marginBottom: '1rem' }}
+                            />
+                        )}
+
+                        <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleSave}>Salvar</button>
+                        <button className="btn" style={{ width: '100%', marginTop: '0.5rem', background: 'transparent' }} onClick={() => setIsModalOpen(false)}>Cancelar</button>
+                    </div>
+                </div>
+            )}
+
+            {/* Deposit Modal for Goals */}
+            {depositGoalId && (
+                <div className="modal-overlay" style={{ alignItems: 'center', justifyContent: 'center' }}>
+                    <div className="modal-content" style={{ borderRadius: '1rem', padding: '1.5rem', width: '90%', maxWidth: 320 }}>
+                        <h3 className="modal-title" style={{ marginBottom: '1rem' }}>Adicionar ao Objetivo</h3>
+                        <input
+                            className="input-field"
+                            type="number"
+                            placeholder="Valor (R$)"
+                            value={depositAmount}
+                            onChange={e => setDepositAmount(e.target.value)}
+                            autoFocus
+                            style={{ marginBottom: '1rem' }}
+                        />
+                        <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleDeposit}>Confirmar</button>
+                        <button className="btn" style={{ width: '100%', marginTop: '0.5rem', background: 'transparent' }} onClick={() => setDepositGoalId(null)}>Cancelar</button>
                     </div>
                 </div>
             )}
@@ -84,7 +216,35 @@ const Profile = ({ toggleTheme, currentTheme }) => {
     const navigate = useNavigate();
     const [subScreen, setSubScreen] = useState(null);
     const [startDay, setStartDay] = useState(localStorage.getItem('startMonthDay') || '1');
+    const [nickname, setNickname] = useState('');
+    const [defaultAccountId, setDefaultAccountId] = useState(localStorage.getItem('defaultAccountId') || null);
     const [activeTab, setActiveTab] = useState('manager'); // manager, track, about
+
+    useEffect(() => {
+        const fetchProfileData = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('start_month_day, nickname, default_account_id')
+                    .eq('id', user.id)
+                    .single();
+
+                if (data) {
+                    if (data.start_month_day) {
+                        setStartDay(data.start_month_day);
+                        localStorage.setItem('startMonthDay', data.start_month_day);
+                    }
+                    if (data.nickname) setNickname(data.nickname);
+                    if (data.default_account_id) {
+                        setDefaultAccountId(data.default_account_id);
+                        localStorage.setItem('defaultAccountId', data.default_account_id);
+                    }
+                }
+            }
+        };
+        fetchProfileData();
+    }, []);
 
     // Data for About
     const [userCount, setUserCount] = useState(0); // Dummy stat
@@ -104,9 +264,30 @@ const Profile = ({ toggleTheme, currentTheme }) => {
         }
     };
 
-    const handleSaveStartDay = (val) => {
+    const handleSaveStartDay = async (val) => {
         setStartDay(val);
         localStorage.setItem('startMonthDay', val);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            await supabase.from('profiles').upsert({ id: user.id, start_month_day: val });
+        }
+    };
+
+    const handleSaveNickname = async (val) => {
+        setNickname(val);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            await supabase.from('profiles').upsert({ id: user.id, nickname: val });
+        }
+    };
+
+    const handleSetDefaultAccount = async (id) => {
+        setDefaultAccountId(id);
+        localStorage.setItem('defaultAccountId', id);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            await supabase.from('profiles').upsert({ id: user.id, default_account_id: id });
+        }
     };
 
     const handleLogout = async () => {
@@ -117,10 +298,10 @@ const Profile = ({ toggleTheme, currentTheme }) => {
     // Sub-screens
     if (subScreen === 'categories') return <ListManager title="Categorias" storageKey="user_categories" defaultItems={[{ id: 1, name: 'Alimentação' }, { id: 2, name: 'Moradia' }, { id: 3, name: 'Lazer' }]} onBack={() => setSubScreen(null)} />;
     if (subScreen === 'tags') return <ListManager title="Tags" storageKey="user_tags" defaultItems={[{ id: 1, name: 'Essencial' }, { id: 2, name: 'Supérfluo' }]} onBack={() => setSubScreen(null)} />;
-    if (subScreen === 'accounts') return <ListManager title="Contas" storageKey="user_accounts" defaultItems={[{ id: 1, name: 'Carteira', value: '0' }, { id: 2, name: 'Banco Principal', value: '1000' }]} itemRender={(i) => <div style={{ display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 600 }}>{i.name}</span><span style={{ fontSize: '0.8rem', opacity: 0.6 }}>R$ {Number(i.value).toFixed(2)}</span></div>} onBack={() => setSubScreen(null)} />;
-    if (subScreen === 'cards') return <ListManager title="Cartões de Crédito" storageKey="user_cards" defaultItems={[{ id: 1, name: 'Nubank', value: '5000' }]} itemRender={(i) => <div style={{ display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 600 }}>{i.name}</span><span style={{ fontSize: '0.8rem', opacity: 0.6 }}>Limite: R$ {Number(i.value).toFixed(2)}</span></div>} onBack={() => setSubScreen(null)} />;
-    if (subScreen === 'goals') return <ListManager title="Objetivos" storageKey="user_goals" defaultItems={[{ id: 1, name: 'Viagem', value: '10000' }]} itemRender={(i) => <div style={{ display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 600 }}>{i.name}</span><span style={{ fontSize: '0.8rem', opacity: 0.6 }}>Meta: R$ {Number(i.value).toFixed(2)}</span></div>} onBack={() => setSubScreen(null)} />;
-    if (subScreen === 'investments') return <ListManager title="Investimentos" storageKey="user_investments" defaultItems={[]} itemRender={(i) => <div style={{ display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 600 }}>{i.name}</span><span style={{ fontSize: '0.8rem', opacity: 0.6 }}>R$ {Number(i.value).toFixed(2)}</span></div>} onBack={() => setSubScreen(null)} />;
+    if (subScreen === 'accounts') return <ListManager title="Contas" storageKey="user_accounts" defaultItems={[{ id: 1, name: 'Carteira', value: '0' }, { id: 2, name: 'Banco Principal', value: '1000' }]} itemRender={(i) => <div style={{ display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 600 }}>{i.name}</span><span style={{ fontSize: '0.8rem', opacity: 0.6 }}>{Number(i.value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span></div>} onBack={() => setSubScreen(null)} onSetDefault={handleSetDefaultAccount} defaultId={defaultAccountId} />;
+    if (subScreen === 'cards') return <ListManager title="Cartões de Crédito" storageKey="user_cards" defaultItems={[{ id: 1, name: 'Nubank', value: '5000' }]} itemRender={(i) => <div style={{ display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 600 }}>{i.name}</span><span style={{ fontSize: '0.8rem', opacity: 0.6 }}>Limite: {Number(i.value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span></div>} onBack={() => setSubScreen(null)} />;
+    if (subScreen === 'goals') return <ListManager title="Objetivos" storageKey="user_goals" defaultItems={[{ id: 1, name: 'Viagem', value: '10000', current: '0' }]} itemRender={(i) => <div style={{ display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 600 }}>{i.name}</span><span style={{ fontSize: '0.8rem', opacity: 0.6 }}>Meta: {Number(i.value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span></div>} onBack={() => setSubScreen(null)} />;
+    if (subScreen === 'investments') return <ListManager title="Investimentos" storageKey="user_investments" defaultItems={[]} itemRender={(i) => <div style={{ display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 600 }}>{i.name}</span><span style={{ fontSize: '0.8rem', opacity: 0.6 }}>{Number(i.value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span></div>} onBack={() => setSubScreen(null)} />;
 
     if (subScreen === 'settings') {
         return (
@@ -140,6 +321,21 @@ const Profile = ({ toggleTheme, currentTheme }) => {
                 </div>
 
                 <div className="dashboard-section" style={{ padding: '0 1rem' }}>
+                    <h3 className="section-title" style={{ marginBottom: '1rem' }}>Perfil</h3>
+                    <div className="card" style={{ marginBottom: '1rem' }}>
+                        <label className="form-label">Apelido (Como quer ser chamado)</label>
+                        <div className="input-container">
+                            <User size={18} color="var(--color-text-muted)" />
+                            <input
+                                className="input-field"
+                                placeholder="Seu apelido"
+                                value={nickname}
+                                onChange={(e) => setNickname(e.target.value)}
+                                onBlur={(e) => handleSaveNickname(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
                     <h3 className="section-title" style={{ marginBottom: '1rem' }}>Configuração Financeira</h3>
                     <div className="card">
                         <label className="form-label">Dia de Início do Mês</label>
@@ -235,7 +431,7 @@ const Profile = ({ toggleTheme, currentTheme }) => {
             {activeTab === 'about' && (
                 <div className="dashboard-section" style={{ padding: '0 1rem' }}>
                     <div className="card" style={{ textAlign: 'center' }}>
-                        <h3 style={{ fontWeight: 800, marginBottom: '0.5rem' }}>SmartOrganizer</h3>
+                        <h3 style={{ fontWeight: 800, marginBottom: '0.5rem' }}>+Agenda</h3>
                         <p style={{ fontSize: '0.9rem', opacity: 0.7 }}>Versão 1.0.0</p>
                         <p style={{ marginTop: '1rem', fontSize: '0.85rem' }}>O organizador inteligente para sua vida financeira e pessoal.</p>
                     </div>

@@ -100,8 +100,15 @@ const Dashboard = ({ toggleTheme, currentTheme }) => {
     const getUser = async () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
+            // Fetch nickname from profiles
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('nickname')
+                .eq('id', user.id)
+                .single();
+
             setUserData({
-                name: user.user_metadata?.full_name || user.email.split('@')[0],
+                name: profile?.nickname || user.user_metadata?.full_name || user.email.split('@')[0],
                 email: user.email
             });
         }

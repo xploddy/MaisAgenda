@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, Tooltip } from 'recharts';
-import { TrendingUp, TrendingDown, CreditCard, ChevronLeft, ChevronRight, Menu, Search, X, Check, Trash2, LogOut, User, Moon, Sun } from 'lucide-react';
+import { TrendingUp, TrendingDown, CreditCard, ChevronLeft, ChevronRight, Menu, Search, X, Check, Trash2, LogOut, User, Moon, Sun, ArrowRightLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format, parseISO, startOfMonth, endOfMonth, isSameMonth, subMonths, addMonths, subYears, addYears, setMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -77,8 +77,29 @@ const Finance = ({ toggleTheme, currentTheme }) => {
     };
 
     // Charts
-    const incomeTotal = filteredTransactions.filter(t => t.type.toLowerCase() === 'income').reduce((acc, t) => acc + Number(t.amount), 0);
-    const expenseTotal = filteredTransactions.filter(t => t.type.toLowerCase() === 'expense').reduce((acc, t) => acc + Number(t.amount), 0);
+    // Totals Calculation with Transfer support for Default Account
+    const defaultId = localStorage.getItem('defaultAccountId');
+    const userAccs = JSON.parse(localStorage.getItem('user_accounts') || '[]');
+    const defAccName = userAccs.find(a => String(a.id) === String(defaultId))?.name;
+
+    const incomeTotal = filteredTransactions.reduce((acc, t) => {
+        if (t.type.toLowerCase() === 'income') return acc + Number(t.amount);
+        // If it's a transfer to the default account, count as income
+        if (t.type.toLowerCase() === 'transfer' && defAccName) {
+            if (t.title.includes(`-> [${defAccName}]`)) return acc + Number(t.amount);
+        }
+        return acc;
+    }, 0);
+
+    const expenseTotal = filteredTransactions.reduce((acc, t) => {
+        if (t.type.toLowerCase() === 'expense') return acc + Number(t.amount);
+        // If it's a transfer from the default account, count as expense
+        if (t.type.toLowerCase() === 'transfer' && defAccName) {
+            if (t.title.includes(`[${defAccName}] ->`)) return acc + Number(t.amount);
+        }
+        return acc;
+    }, 0);
+
     const balanceTotal = incomeTotal - expenseTotal;
 
     const expensesByCategory = filteredTransactions
@@ -212,7 +233,9 @@ const Finance = ({ toggleTheme, currentTheme }) => {
                     filteredTransactions.map(t => (
                         <div key={t.id} className={`trans-list-item ${t.status === 'pending' ? 'pending' : ''}`}>
                             <div className={`trans-icon-bg ${t.type.toLowerCase()}`}>
-                                {t.type.toLowerCase() === 'income' ? <TrendingUp size={18} /> : <TrendingDown size={18} />}
+                                {t.type.toLowerCase() === 'income' ? <TrendingUp size={18} /> :
+                                    t.type.toLowerCase() === 'transfer' ? <ArrowRightLeft size={18} /> :
+                                        <TrendingDown size={18} />}
                             </div>
                             <div className="trans-core" onClick={() => setEditingTrans(t)}>
                                 <div className="trans-name">{t.title}</div>
@@ -224,7 +247,8 @@ const Finance = ({ toggleTheme, currentTheme }) => {
                             </div>
                             <div className="trans-right">
                                 <div className={`trans-amt ${t.type.toLowerCase()}`}>
-                                    {t.type.toLowerCase() === 'income' ? '+' : '-'} R$ {Number(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    {t.type.toLowerCase() === 'income' ? '+' :
+                                        t.type.toLowerCase() === 'transfer' ? '' : '-'} R$ {Number(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                 </div>
                                 <button className="trans-del" onClick={() => setDeleteItem(t)}><Trash2 size={16} /></button>
                             </div>

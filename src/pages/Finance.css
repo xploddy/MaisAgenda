@@ -245,6 +245,11 @@
     color: #f43f5e;
 }
 
+.trans-icon-bg.transfer {
+    background: #eff6ff;
+    color: #3b82f6;
+}
+
 .trans-core {
     flex: 1;
     min-width: 0;
@@ -304,6 +309,10 @@
 
 .trans-amt.expense {
     color: #f43f5e;
+}
+
+.trans-amt.transfer {
+    color: #3b82f6;
 }
 
 .trans-del {

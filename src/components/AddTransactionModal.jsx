@@ -30,6 +30,7 @@ const AddTransactionModal = ({ type, onClose, trans = null }) => {
     const [categoryList, setCategoryList] = useState([]);
     const [accountList, setAccountList] = useState([]);
     const [cardList, setCardList] = useState([]);
+    const [destinationList, setDestinationList] = useState([]);
 
     const [loading, setLoading] = useState(false);
     const dateInputRef = useRef(null);
@@ -60,13 +61,68 @@ const AddTransactionModal = ({ type, onClose, trans = null }) => {
 
             const userCards = JSON.parse(localStorage.getItem('user_cards') || '[]');
             setCardList(userCards.map(c => c.name));
+
+            const userGoals = JSON.parse(localStorage.getItem('user_goals') || '[]');
+
+            // Destinations can be anything
+            setDestinationList([
+                ...userAccs.map(a => a.name),
+                ...userCards.map(c => c.name),
+                ...userGoals.map(g => g.name)
+            ]);
+
+            // Set Default Account
+            if (!trans) {
+                const defaultId = localStorage.getItem('defaultAccountId');
+                if (defaultId) {
+                    const defAcc = userAccs.find(a => String(a.id) === String(defaultId));
+                    if (defAcc) {
+                        setAccount(defAcc.name);
+                        setSourceAccount(defAcc.name);
+                    }
+                }
+            }
         };
         loadLists();
 
         // Edit Mode
         if (trans) {
             setDisplayValue(String(trans.amount));
-            setDescription(trans.title);
+
+            // Try to extract account/card from title: "Title [Account]" or "Title (Card)"
+            let cleanedTitle = trans.title;
+            const accMatch = trans.title.match(/\s?\[(.*?)\]$/);
+            const cardMatch = trans.title.match(/\s?\((.*?)\)$/);
+
+            const userAccs = JSON.parse(localStorage.getItem('user_accounts') || '[]');
+            const userCards = JSON.parse(localStorage.getItem('user_cards') || '[]');
+
+            if (accMatch) {
+                const accName = accMatch[1];
+                setAccount(accName);
+                setSourceAccount(accName);
+                cleanedTitle = cleanedTitle.replace(/\s?\[.*?\]$/, '');
+            }
+
+            if (cardMatch) {
+                const cardName = cardMatch[1];
+                setCard(cardName);
+                cleanedTitle = cleanedTitle.replace(/\s?\(.*?\)$/, '');
+            }
+
+            // If no account found in title, use default
+            if (!accMatch && !cardMatch) {
+                const defaultId = localStorage.getItem('defaultAccountId');
+                if (defaultId) {
+                    const defAcc = userAccs.find(a => String(a.id) === String(defaultId));
+                    if (defAcc) {
+                        setAccount(defAcc.name);
+                        setSourceAccount(defAcc.name);
+                    }
+                }
+            }
+
+            setDescription(cleanedTitle);
             setCategory(trans.category);
             setIsPaid(trans.status === 'paid');
             setCustomDate(format(parseISO(trans.date), 'yyyy-MM-dd'));
@@ -108,9 +164,15 @@ const AddTransactionModal = ({ type, onClose, trans = null }) => {
         if (e.target.files[0]) setAttachment(e.target.files[0]);
     };
 
+    const safeFloat = (val) => {
+        if (!val) return 0;
+        const parsed = parseFloat(String(val).replace(',', '.'));
+        return isNaN(parsed) ? 0 : parsed;
+    };
+
     const handleSave = async () => {
         setLoading(true);
-        const amount = parseFloat(displayValue);
+        const amount = safeFloat(displayValue);
         let baseDate = new Date();
         if (dateTab === 'yesterday') baseDate = subDays(new Date(), 1);
         else if (dateTab === 'other') baseDate = parseISO(customDate);
@@ -123,6 +185,17 @@ const AddTransactionModal = ({ type, onClose, trans = null }) => {
 
         if (type === 'transfer') {
             finalTitle = `${description || 'Transferência'}: ${sourceAccount || 'Origem'} -> ${destAccount || 'Destino'}`;
+
+            // Check for default account to enrich title for display (User request)
+            const defaultId = localStorage.getItem('defaultAccountId');
+            const userAccs = JSON.parse(localStorage.getItem('user_accounts') || '[]');
+            const defAccName = userAccs.find(a => String(a.id) === String(defaultId))?.name;
+
+            if (sourceAccount === defAccName) {
+                finalTitle = `${description || 'Transferência'}: [${sourceAccount}] -> ${destAccount}`;
+            } else if (destAccount === defAccName) {
+                finalTitle = `${description || 'Transferência'}: ${sourceAccount} -> [${destAccount}]`;
+            }
         } else if (type === 'card') {
             finalType = 'expense';
             finalTitle = `${description || 'Cartão'} (${card})`;
@@ -167,10 +240,84 @@ const AddTransactionModal = ({ type, onClose, trans = null }) => {
             }
         }
 
-        const { error } = await supabase.from('transactions').insert(payloads);
+        let error;
+        if (trans) {
+            // Update mode: Only update the current transaction
+            const { error: updateError } = await supabase
+                .from('transactions')
+                .update(payloads[0])
+                .eq('id', trans.id);
+            error = updateError;
+        } else {
+            // Insert mode: Handle recurring or single
+            const { error: insertError } = await supabase.from('transactions').insert(payloads);
+            error = insertError;
+        }
 
-        if (!error && calendarPayloads.length > 0) {
-            await supabase.from('calendar_events').insert(calendarPayloads);
+        if (!error) {
+            // Update Local Storage Balances
+            const wasPending = trans && trans.status !== 'paid';
+            const isNewPaid = !trans && isPaid;
+            const becamePaid = wasPending && isPaid;
+
+            if (!isPlanning && (isNewPaid || becamePaid)) {
+                const userAccs = JSON.parse(localStorage.getItem('user_accounts') || '[]');
+                const userCards = JSON.parse(localStorage.getItem('user_cards') || '[]');
+                const userGoals = JSON.parse(localStorage.getItem('user_goals') || '[]');
+
+                if (type === 'transfer') {
+                    // Update SOURCE (Account or Card)
+                    const updatedAccs = userAccs.map(acc => {
+                        if (acc.name === sourceAccount) return { ...acc, value: (safeFloat(acc.value) - amount).toString() };
+                        return acc;
+                    });
+                    const updatedCardsSource = userCards.map(c => {
+                        if (c.name === sourceAccount) return { ...c, value: (safeFloat(c.value) - amount).toString() };
+                        return c;
+                    });
+
+                    // Update DESTINATION (Account, Card or Goal)
+                    const updatedAccsFinal = updatedAccs.map(acc => {
+                        if (acc.name === destAccount) return { ...acc, value: (safeFloat(acc.value) + amount).toString() };
+                        return acc;
+                    });
+                    const updatedCardsFinal = updatedCardsSource.map(c => {
+                        if (c.name === destAccount) return { ...c, value: (safeFloat(c.value) + amount).toString() };
+                        return c;
+                    });
+                    const updatedGoals = userGoals.map(g => {
+                        if (g.name === destAccount) return { ...g, current: (safeFloat(g.current || 0) + amount).toString() };
+                        return g;
+                    });
+
+                    localStorage.setItem('user_accounts', JSON.stringify(updatedAccsFinal));
+                    localStorage.setItem('user_cards', JSON.stringify(updatedCardsFinal));
+                    localStorage.setItem('user_goals', JSON.stringify(updatedGoals));
+
+                } else if (type === 'card') {
+                    // Reduce available limit
+                    const updatedCards = userCards.map(c => {
+                        if (c.name === card) return { ...c, value: (safeFloat(c.value) - amount).toString() };
+                        return c;
+                    });
+                    localStorage.setItem('user_cards', JSON.stringify(updatedCards));
+                } else if (account) {
+                    // Income or Expense
+                    const updatedAccs = userAccs.map(acc => {
+                        if (acc.name === account) {
+                            const accVal = safeFloat(acc.value);
+                            const newVal = type === 'income' ? accVal + amount : accVal - amount;
+                            return { ...acc, value: newVal.toString() };
+                        }
+                        return acc;
+                    });
+                    localStorage.setItem('user_accounts', JSON.stringify(updatedAccs));
+                }
+            }
+
+            if (calendarPayloads.length > 0) {
+                await supabase.from('calendar_events').insert(calendarPayloads);
+            }
         }
 
         setLoading(false);
@@ -260,8 +407,8 @@ const AddTransactionModal = ({ type, onClose, trans = null }) => {
                             <div className="atm-field-item">
                                 <div className="atm-icon-circle"><Wallet size={18} /></div>
                                 <select className="atm-input" value={destAccount} onChange={e => setDestAccount(e.target.value)}>
-                                    <option value="">Conta Destino</option>
-                                    {accountList.map(a => <option key={a} value={a}>{a}</option>)}
+                                    <option value="">Destino (Conta/Cartão/Objetivo)</option>
+                                    {destinationList.map(a => <option key={a} value={a}>{a}</option>)}
                                 </select>
                                 <ChevronRight size={18} color="var(--color-text-muted)" />
                             </div>

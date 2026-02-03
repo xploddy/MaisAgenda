@@ -231,19 +231,43 @@ const Profile = ({ toggleTheme, currentTheme }) => {
             const { data: trans } = await supabase.from('transactions').select('*').eq('user_id', user.id);
 
             if (trans && trans.length > 0) {
+                const defaultId = localStorage.getItem('defaultAccountId');
+                const userAccs = JSON.parse(localStorage.getItem('user_accounts') || '[]');
+                const defAccName = userAccs.find(a => String(a.id) === String(defaultId))?.name;
+
                 const now = new Date();
                 const thisMonth = trans.filter(t => {
                     const d = parseISO(t.date);
                     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
                 });
 
-                const inc = thisMonth.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
-                const exp = thisMonth.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
+                const inc = thisMonth.reduce((acc, t) => {
+                    if (t.type === 'income') {
+                        const accMatch = t.title.match(/\s?\[(.*?)\]$/);
+                        if (!accMatch || (defAccName && accMatch[1] === defAccName)) return acc + Number(t.amount);
+                    }
+                    if (t.type === 'transfer' && defAccName && t.title.includes(`-> [${defAccName}]`)) return acc + Number(t.amount);
+                    return acc;
+                }, 0);
+
+                const exp = thisMonth.reduce((acc, t) => {
+                    if (t.type === 'expense') {
+                        const accMatch = t.title.match(/\s?\[(.*?)\]$/);
+                        if (!accMatch || (defAccName && accMatch[1] === defAccName)) return acc + Number(t.amount);
+                    }
+                    if (t.type === 'transfer' && defAccName && t.title.includes(`[${defAccName}] ->`)) return acc + Number(t.amount);
+                    return acc;
+                }, 0);
+
                 const savings = inc - exp;
                 const rate = inc > 0 ? (savings / inc) * 100 : 0;
 
                 const catMap = {};
-                thisMonth.filter(t => t.type === 'expense').forEach(t => {
+                thisMonth.filter(t => {
+                    if (t.type !== 'expense') return false;
+                    const accMatch = t.title.match(/\s?\[(.*?)\]$/);
+                    return !accMatch || (defAccName && accMatch[1] === defAccName);
+                }).forEach(t => {
                     const cat = t.category || 'Outros';
                     catMap[cat] = (catMap[cat] || 0) + Number(t.amount);
                 });

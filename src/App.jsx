@@ -17,13 +17,13 @@ function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
-      if (session) fetchProfileTheme(session.user.id);
+      if (session) syncProfileData(session.user.id);
       setLoading(false)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
-      if (session) fetchProfileTheme(session.user.id);
+      if (session) syncProfileData(session.user.id);
     })
 
     document.documentElement.setAttribute('data-theme', theme);
@@ -32,20 +32,30 @@ function App() {
     return () => subscription.unsubscribe()
   }, [theme])
 
-  const fetchProfileTheme = async (userId) => {
+  const syncProfileData = async (userId) => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('theme')
+        .select('theme, default_account_id, start_month_day')
         .eq('id', userId)
         .single();
 
-      if (data && data.theme) {
-        setTheme(data.theme);
-        localStorage.setItem('theme', data.theme);
+      if (data) {
+        if (data.theme) {
+          setTheme(data.theme);
+          localStorage.setItem('theme', data.theme);
+          document.documentElement.setAttribute('data-theme', data.theme);
+          document.body.className = `${data.theme}-theme`;
+        }
+        if (data.default_account_id) {
+          localStorage.setItem('defaultAccountId', data.default_account_id);
+        }
+        if (data.start_month_day) {
+          localStorage.setItem('startMonthDay', data.start_month_day);
+        }
       }
     } catch (error) {
-      console.log('Error fetching theme:', error);
+      console.log('Error syncing profile:', error);
     }
   };
 

@@ -83,18 +83,28 @@ const Finance = ({ toggleTheme, currentTheme }) => {
     const defAccName = userAccs.find(a => String(a.id) === String(defaultId))?.name;
 
     const incomeTotal = filteredTransactions.reduce((acc, t) => {
-        if (t.type.toLowerCase() === 'income') return acc + Number(t.amount);
-        // If it's a transfer to the default account, count as income
-        if (t.type.toLowerCase() === 'transfer' && defAccName) {
+        const type = t.type.toLowerCase();
+        if (type === 'income') {
+            const accMatch = t.title.match(/\s?\[(.*?)\]$/);
+            if (!accMatch || (defAccName && accMatch[1] === defAccName)) {
+                return acc + Number(t.amount);
+            }
+        }
+        if (type === 'transfer' && defAccName) {
             if (t.title.includes(`-> [${defAccName}]`)) return acc + Number(t.amount);
         }
         return acc;
     }, 0);
 
     const expenseTotal = filteredTransactions.reduce((acc, t) => {
-        if (t.type.toLowerCase() === 'expense') return acc + Number(t.amount);
-        // If it's a transfer from the default account, count as expense
-        if (t.type.toLowerCase() === 'transfer' && defAccName) {
+        const type = t.type.toLowerCase();
+        if (type === 'expense') {
+            const accMatch = t.title.match(/\s?\[(.*?)\]$/);
+            if (!accMatch || (defAccName && accMatch[1] === defAccName)) {
+                return acc + Number(t.amount);
+            }
+        }
+        if (type === 'transfer' && defAccName) {
             if (t.title.includes(`[${defAccName}] ->`)) return acc + Number(t.amount);
         }
         return acc;
@@ -103,7 +113,11 @@ const Finance = ({ toggleTheme, currentTheme }) => {
     const balanceTotal = incomeTotal - expenseTotal;
 
     const expensesByCategory = filteredTransactions
-        .filter(t => t.type.toLowerCase() === 'expense')
+        .filter(t => {
+            if (t.type.toLowerCase() !== 'expense') return false;
+            const accMatch = t.title.match(/\s?\[(.*?)\]$/);
+            return !accMatch || (defAccName && accMatch[1] === defAccName);
+        })
         .reduce((acc, t) => {
             acc[t.category] = (acc[t.category] || 0) + Number(t.amount);
             return acc;

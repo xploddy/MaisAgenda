@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import {
     User, LogOut, Download, Share2, Key, ChevronLeft, Moon, Sun,
     CreditCard, LayoutGrid, Tag, Upload, Settings, Wallet, Target, TrendingUp, Bookmark, ChevronRight, Calculator, Plus, Trash2, Edit2, X, AlertCircle, Check
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import * as XLSX from 'xlsx';
+import JSZip from 'jszip';
 import './Profile.css';
 
 // Generic List Manager for Local Settings (simulating DB tables)
@@ -219,6 +222,38 @@ const Profile = ({ toggleTheme, currentTheme }) => {
     const [nickname, setNickname] = useState('');
     const [defaultAccountId, setDefaultAccountId] = useState(localStorage.getItem('defaultAccountId') || null);
     const [activeTab, setActiveTab] = useState('manager'); // manager, track, about
+    const [stats, setStats] = useState({ savings: 0, rate: 0, topCats: [] });
+
+    useEffect(() => {
+        const fetchStats = async () => {
+            if (activeTab !== 'track') return;
+            const { data: { user } } = await supabase.auth.getUser();
+            const { data: trans } = await supabase.from('transactions').select('*').eq('user_id', user.id);
+
+            if (trans && trans.length > 0) {
+                const now = new Date();
+                const thisMonth = trans.filter(t => {
+                    const d = parseISO(t.date);
+                    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+                });
+
+                const inc = thisMonth.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
+                const exp = thisMonth.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
+                const savings = inc - exp;
+                const rate = inc > 0 ? (savings / inc) * 100 : 0;
+
+                const catMap = {};
+                thisMonth.filter(t => t.type === 'expense').forEach(t => {
+                    const cat = t.category || 'Outros';
+                    catMap[cat] = (catMap[cat] || 0) + Number(t.amount);
+                });
+                const topCats = Object.entries(catMap).sort((a, b) => b[1] - a[1]).slice(0, 3);
+
+                setStats({ savings, rate, topCats });
+            }
+        };
+        fetchStats();
+    }, [activeTab]);
 
     useEffect(() => {
         const fetchProfileData = async () => {
@@ -251,15 +286,57 @@ const Profile = ({ toggleTheme, currentTheme }) => {
 
     const handleExport = async () => {
         try {
-            const { data: trans, error } = await supabase.from('transactions').select('*');
+            const { data: { user } } = await supabase.auth.getUser();
+            const { data: trans, error } = await supabase.from('transactions').select('*').eq('user_id', user.id).order('date', { ascending: false });
             if (error) throw error;
             if (!trans || trans.length === 0) return alert('Sem dados para exportar.');
 
-            const ws = XLSX.utils.json_to_sheet(trans);
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Financeiro");
-            XLSX.writeFile(wb, "SmartOrganizer_Financeiro.xlsx");
+
+            // Group by Month
+            const groups = trans.reduce((acc, t) => {
+                const monthYear = format(parseISO(t.date), 'MMMM yyyy', { locale: ptBR });
+                if (!acc[monthYear]) acc[monthYear] = [];
+                acc[monthYear].push(t);
+                return acc;
+            }, {});
+
+            // Create a sheet for each month
+            Object.keys(groups).forEach(month => {
+                const monthTrans = groups[month];
+
+                // Prepare rows with better header and formatting
+                const rows = monthTrans.map(t => ({
+                    'Data': format(parseISO(t.date), 'dd/MM/yyyy'),
+                    'Descrição': t.title,
+                    'Categoria': t.category || '-',
+                    'Tipo': t.type === 'income' ? 'Entrada (+)' : 'Saída (-)',
+                    'Valor (R$)': Number(t.amount),
+                    'Status': t.status === 'paid' ? 'Liquidado' : 'Pendente'
+                }));
+
+                const income = monthTrans.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
+                const expense = monthTrans.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
+
+                // Add Summary Rows
+                rows.push({}); // Empty row
+                rows.push({ 'Descrição': 'RESUMO MENSAL', 'Valor (R$)': '' });
+                rows.push({ 'Descrição': 'Total de Entradas', 'Valor (R$)': income });
+                rows.push({ 'Descrição': 'Total de Saídas', 'Valor (R$)': expense });
+                rows.push({ 'Descrição': 'SALDO FINAL', 'Valor (R$)': income - expense });
+
+                const ws = XLSX.utils.json_to_sheet(rows);
+
+                // Final layout adjustments
+                ws['!cols'] = [{ wch: 12 }, { wch: 40 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 12 }];
+
+                XLSX.utils.book_append_sheet(wb, ws, month.substring(0, 31)); // Max 31 chars for sheet name
+            });
+
+            XLSX.writeFile(wb, `SmartOrganizer_Financeiro_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+            alert('Relatório Excel gerado com sucesso!');
         } catch (e) {
+            console.error(e);
             alert('Erro ao exportar: ' + e.message);
         }
     };
@@ -293,6 +370,121 @@ const Profile = ({ toggleTheme, currentTheme }) => {
     const handleLogout = async () => {
         await supabase.auth.signOut();
         navigate('/login');
+    };
+
+    const handleExportFullBackup = async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            // 1. Capture LocalStorage
+            const localKeys = [
+                'user_accounts', 'user_cards', 'user_goals', 'user_investments',
+                'user_categories', 'user_tags', 'startMonthDay', 'theme', 'defaultAccountId'
+            ];
+            const localData = {};
+            localKeys.forEach(k => {
+                localData[k] = localStorage.getItem(k);
+            });
+
+            // 2. Fetch Supabase Data
+            const tables = ['transactions', 'tasks', 'calendar_events', 'profiles', 'shopping_items'];
+            const dbData = {};
+
+            for (const table of tables) {
+                const { data, error } = await supabase.from(table).select('*').eq(table === 'profiles' ? 'id' : 'user_id', user.id);
+                if (!error) dbData[table] = data;
+            }
+
+            const backupData = {
+                version: '1.2',
+                timestamp: new Date().toISOString(),
+                user_id: user.id,
+                localStorage: localData,
+                database: dbData
+            };
+
+            // 3. Create ZIP
+            const zip = new JSZip();
+            zip.file("backup_data.json", JSON.stringify(backupData, null, 2));
+            zip.file("readme.txt", "SmartOrganizer Advanced Backup\nGenerated on: " + new Date().toLocaleString());
+
+            const content = await zip.generateAsync({ type: "blob" });
+            const url = URL.createObjectURL(content);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `SmartOrganizer_Backup_${format(new Date(), 'yyyy-MM-dd')}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            alert('Backup ZIP exportado com sucesso!');
+        } catch (err) {
+            console.error(err);
+            alert('Erro ao exportar backup: ' + err.message);
+        }
+    };
+
+    const handleImportFullBackup = async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        if (!confirm('Esta ação restaurará dados locais e do banco de dados. Deseja continuar?')) return;
+
+        try {
+            let backup;
+            if (file.name.endsWith('.zip')) {
+                const zip = await JSZip.loadAsync(file);
+                const backupFile = zip.file("backup_data.json");
+                if (!backupFile) throw new Error("Arquivo backup_data.json não encontrado no ZIP.");
+                const content = await backupFile.async("string");
+                backup = JSON.parse(content);
+            } else if (file.name.endsWith('.json')) {
+                const reader = new FileReader();
+                const content = await new Promise((resolve, reject) => {
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.onerror = reject;
+                    reader.readAsText(file);
+                });
+                backup = JSON.parse(content);
+            } else {
+                throw new Error("Formato de arquivo não suportado. Use .zip ou .json");
+            }
+
+            if (!backup.localStorage || !backup.database) throw new Error('Formato de backup inválido');
+
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            // 1. Restore LocalStorage
+            Object.keys(backup.localStorage).forEach(k => {
+                const val = backup.localStorage[k];
+                if (val !== null && val !== undefined) {
+                    localStorage.setItem(k, val);
+                }
+            });
+
+            // 2. Restore Supabase (Upsert)
+            for (const table in backup.database) {
+                const rows = backup.database[table];
+                if (rows && rows.length > 0) {
+                    const preparedRows = rows.map(r => ({
+                        ...r,
+                        user_id: table === 'profiles' ? undefined : user.id,
+                        id: (table === 'profiles') ? user.id : r.id
+                    }));
+
+                    const { error } = await supabase.from(table).upsert(preparedRows);
+                    if (error) console.error(`Erro ao restaurar tabela ${table}:`, error);
+                }
+            }
+
+            alert('Dados restaurados com sucesso! O aplicativo será recarregado.');
+            window.location.reload();
+        } catch (err) {
+            console.error(err);
+            alert('Erro ao importar backup: ' + err.message);
+        }
     };
 
     // Sub-screens
@@ -346,6 +538,48 @@ const Profile = ({ toggleTheme, currentTheme }) => {
                                     <option key={d} value={d}>Dia {d}</option>
                                 ))}
                             </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (subScreen === 'backup') {
+        return (
+            <div className="profile-page animate-fade-in">
+                <header className="options-header">
+                    <button className="icon-btn-ghost" onClick={() => setSubScreen(null)}><ChevronLeft size={24} /></button>
+                    <h1 className="options-title">Backup Completo</h1>
+                    <div style={{ width: 24 }}></div>
+                </header>
+
+                <div className="dashboard-section" style={{ padding: '0 1rem' }}>
+                    <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
+                        <Upload size={48} color="var(--color-primary)" style={{ margin: '0 auto 1.5rem', display: 'block' }} />
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1rem' }}>Exportar e Importar</h3>
+                        <p style={{ fontSize: '0.9rem', opacity: 0.7, marginBottom: '2rem' }}>
+                            Mantenha seus dados seguros. O backup completo inclui configurações locais do navegador e todos os lançamentos do banco de dados.
+                        </p>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleExportFullBackup}>
+                                <Download size={18} /> Exportar Backup Atual
+                            </button>
+
+                            <label className="btn" style={{ width: '100%', background: 'var(--color-surface)', color: 'var(--color-text-main)', border: '1px solid var(--color-border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                                <Upload size={18} /> Restaurar de um Arquivo
+                                <input type="file" accept=".json" onChange={handleImportFullBackup} style={{ display: 'none' }} />
+                            </label>
+                        </div>
+                    </div>
+
+                    <div style={{ marginTop: '2rem', padding: '1rem', background: 'rgba(245, 158, 11, 0.1)', borderRadius: '1rem', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
+                        <div style={{ display: 'flex', gap: '0.75rem', color: '#d97706' }}>
+                            <AlertCircle size={20} />
+                            <div style={{ fontSize: '0.85rem' }}>
+                                <strong>Aviso:</strong> A restauração de um backup substituirá suas configurações atuais. Recomendamos baixar um backup de segurança antes.
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -408,23 +642,50 @@ const Profile = ({ toggleTheme, currentTheme }) => {
                     </div>
 
                     <div className="menu-section">
-                        <button className="menu-item">
+                        <button className="menu-item" onClick={() => setSubScreen('backup')}>
                             <Upload size={20} className="menu-icon" />
-                            <span className="menu-text">Importar dados</span>
+                            <span className="menu-text">Backup e Restauração</span>
+                            <ChevronRight size={16} style={{ opacity: 0.4 }} />
                         </button>
                         <button className="menu-item" onClick={handleExport}>
                             <Download size={20} className="menu-icon" />
-                            <span className="menu-text">Exportar financeiro</span>
+                            <span className="menu-text">Exportar financeiro (Excel)</span>
                         </button>
                     </div>
                 </>
             )}
 
             {activeTab === 'track' && (
-                <div style={{ padding: '2rem', textAlign: 'center', opacity: 0.6 }}>
-                    <TrendingUp size={48} style={{ margin: '0 auto 1rem', display: 'block' }} />
-                    <h3>Em Breve</h3>
-                    <p>Relatórios detalhados e insights.</p>
+                <div className="dashboard-section" style={{ padding: '0 1rem' }}>
+                    <div className="card" style={{ marginBottom: '1rem', background: 'var(--color-primary)', color: 'white' }}>
+                        <div style={{ opacity: 0.8, fontSize: '0.85rem' }}>Economia do Mês</div>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 800 }}>{stats.savings.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</div>
+                        <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <TrendingUp size={14} /> Taxa de Poupança: {stats.rate.toFixed(1)}%
+                        </div>
+                    </div>
+
+                    <h3 className="section-title">Maiores Gastos do Mês</h3>
+                    <div className="card">
+                        {stats.topCats.length === 0 ? (
+                            <div style={{ textAlign: 'center', padding: '1rem', opacity: 0.5 }}>Sem gastos registrados este mês.</div>
+                        ) : (
+                            stats.topCats.map(([cat, val], idx) => (
+                                <div key={cat} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 0', borderBottom: idx < 2 ? '1px solid var(--color-border)' : 'none' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                        <div className="atm-icon-circle" style={{ width: 32, height: 32 }}><Tag size={16} /></div>
+                                        <span style={{ fontWeight: 600 }}>{cat}</span>
+                                    </div>
+                                    <span style={{ fontWeight: 700 }}>{val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                </div>
+                            ))
+                        )}
+                    </div>
+
+                    <div style={{ marginTop: '2rem', textAlign: 'center', opacity: 0.6 }}>
+                        <TrendingUp size={48} style={{ margin: '0 auto 1rem', display: 'block' }} />
+                        <p style={{ fontSize: '0.9rem' }}>Mais relatórios detalhados em breve nas próximas atualizações!</p>
+                    </div>
                 </div>
             )}
 
@@ -432,7 +693,7 @@ const Profile = ({ toggleTheme, currentTheme }) => {
                 <div className="dashboard-section" style={{ padding: '0 1rem' }}>
                     <div className="card" style={{ textAlign: 'center' }}>
                         <h3 style={{ fontWeight: 800, marginBottom: '0.5rem' }}>+Agenda</h3>
-                        <p style={{ fontSize: '0.9rem', opacity: 0.7 }}>Versão 1.0.0</p>
+                        <p style={{ fontSize: '0.9rem', opacity: 0.7 }}>Versão 1.2.1</p>
                         <p style={{ marginTop: '1rem', fontSize: '0.85rem' }}>O organizador inteligente para sua vida financeira e pessoal.</p>
                     </div>
                 </div>

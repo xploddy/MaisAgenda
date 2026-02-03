@@ -8,7 +8,7 @@ const AddTransactionModal = ({ type, onClose, trans = null }) => {
     // type: 'expense' | 'income' | 'transfer' | 'card'
     const [displayValue, setDisplayValue] = useState('0');
     const [showKeypad, setShowKeypad] = useState(!trans);
-    const [isPaid, setIsPaid] = useState(true);
+    const [isPaid, setIsPaid] = useState(type !== 'card');
     const [dateTab, setDateTab] = useState('today');
     const [customDate, setCustomDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [description, setDescription] = useState('');
@@ -196,7 +196,7 @@ const AddTransactionModal = ({ type, onClose, trans = null }) => {
             } else if (destAccount === defAccName) {
                 finalTitle = `${description || 'Transferência'}: ${sourceAccount} -> [${destAccount}]`;
             }
-        } else if (type === 'card') {
+        } else if (type === 'card' || (type === 'expense' && card)) {
             finalType = 'expense';
             finalTitle = `${description || 'Cartão'} (${card})`;
             finalCategory = 'Cartão de Crédito';
@@ -257,61 +257,89 @@ const AddTransactionModal = ({ type, onClose, trans = null }) => {
         if (!error) {
             // Update Local Storage Balances
             const wasPending = trans && trans.status !== 'paid';
-            const isNewPaid = !trans && isPaid;
+            const wasPaid = trans && trans.status === 'paid';
+            const isNew = !trans;
             const becamePaid = wasPending && isPaid;
+            const becamePending = wasPaid && !isPaid;
 
-            if (!isPlanning && (isNewPaid || becamePaid)) {
+            if (!isPlanning) {
                 const userAccs = JSON.parse(localStorage.getItem('user_accounts') || '[]');
                 const userCards = JSON.parse(localStorage.getItem('user_cards') || '[]');
                 const userGoals = JSON.parse(localStorage.getItem('user_goals') || '[]');
 
-                if (type === 'transfer') {
-                    // Update SOURCE (Account or Card)
-                    const updatedAccs = userAccs.map(acc => {
-                        if (acc.name === sourceAccount) return { ...acc, value: (safeFloat(acc.value) - amount).toString() };
-                        return acc;
-                    });
-                    const updatedCardsSource = userCards.map(c => {
-                        if (c.name === sourceAccount) return { ...c, value: (safeFloat(c.value) - amount).toString() };
-                        return c;
-                    });
+                if (type === 'card' || (type === 'expense' && card)) {
+                    // CREDIT CARD LOGIC:
+                    const oldCardMatch = trans?.title.match(/\s?\((.*?)\)$/);
+                    const oldCardName = oldCardMatch ? oldCardMatch[1] : null;
 
-                    // Update DESTINATION (Account, Card or Goal)
-                    const updatedAccsFinal = updatedAccs.map(acc => {
-                        if (acc.name === destAccount) return { ...acc, value: (safeFloat(acc.value) + amount).toString() };
-                        return acc;
-                    });
-                    const updatedCardsFinal = updatedCardsSource.map(c => {
-                        if (c.name === destAccount) return { ...c, value: (safeFloat(c.value) + amount).toString() };
-                        return c;
-                    });
-                    const updatedGoals = userGoals.map(g => {
-                        if (g.name === destAccount) return { ...g, current: (safeFloat(g.current || 0) + amount).toString() };
-                        return g;
-                    });
-
-                    localStorage.setItem('user_accounts', JSON.stringify(updatedAccsFinal));
-                    localStorage.setItem('user_cards', JSON.stringify(updatedCardsFinal));
-                    localStorage.setItem('user_goals', JSON.stringify(updatedGoals));
-
-                } else if (type === 'card') {
-                    // Reduce available limit
                     const updatedCards = userCards.map(c => {
-                        if (c.name === card) return { ...c, value: (safeFloat(c.value) - amount).toString() };
-                        return c;
+                        let newLimit = safeFloat(c.value);
+
+                        if (isNew) {
+                            if (c.name === card && !isPaid) newLimit -= amount;
+                        } else {
+                            if (c.name === oldCardName && c.name !== card) {
+                                // Restore old card if it was pending
+                                if (wasPending) newLimit += safeFloat(trans.amount);
+                            } else if (c.name === card && c.name !== oldCardName) {
+                                // New card: Subtract if pending
+                                if (!isPaid) newLimit -= amount;
+                            } else if (c.name === card && c.name === oldCardName) {
+                                // Same card: handle transition/amount change
+                                if (becamePaid) newLimit += safeFloat(trans.amount);
+                                else if (becamePending) newLimit -= amount;
+                                else if (!isPaid) newLimit += safeFloat(trans.amount) - amount;
+                            }
+                        }
+
+                        return { ...c, value: newLimit.toString() };
                     });
                     localStorage.setItem('user_cards', JSON.stringify(updatedCards));
+                } else if (type === 'transfer') {
+                    if (isNew || becamePaid) {
+                        // Update SOURCE (Account or Card)
+                        const updatedAccs = userAccs.map(acc => {
+                            if (acc.name === sourceAccount) return { ...acc, value: (safeFloat(acc.value) - amount).toString() };
+                            return acc;
+                        });
+                        const updatedCardsSource = userCards.map(c => {
+                            if (c.name === sourceAccount) return { ...c, value: (safeFloat(c.value) - amount).toString() };
+                            return c;
+                        });
+
+                        // Update DESTINATION (Account, Card or Goal)
+                        const updatedAccsFinal = updatedAccs.map(acc => {
+                            if (acc.name === destAccount) return { ...acc, value: (safeFloat(acc.value) + amount).toString() };
+                            return acc;
+                        });
+                        const updatedCardsFinal = updatedCardsSource.map(c => {
+                            if (c.name === destAccount) return { ...c, value: (safeFloat(c.value) + amount).toString() };
+                            return c;
+                        });
+                        const updatedGoals = userGoals.map(g => {
+                            if (g.name === destAccount) return { ...g, current: (safeFloat(g.current || 0) + amount).toString() };
+                            return g;
+                        });
+
+                        localStorage.setItem('user_accounts', JSON.stringify(updatedAccsFinal));
+                        localStorage.setItem('user_cards', JSON.stringify(updatedCardsFinal));
+                        localStorage.setItem('user_goals', JSON.stringify(updatedGoals));
+                    }
                 } else if (account) {
                     // Income or Expense
-                    const updatedAccs = userAccs.map(acc => {
-                        if (acc.name === account) {
-                            const accVal = safeFloat(acc.value);
-                            const newVal = type === 'income' ? accVal + amount : accVal - amount;
-                            return { ...acc, value: newVal.toString() };
-                        }
-                        return acc;
-                    });
-                    localStorage.setItem('user_accounts', JSON.stringify(updatedAccs));
+                    // Only update if it became paid or is new and paid
+                    const isNewPaid = isNew && isPaid;
+                    if (isNewPaid || becamePaid) {
+                        const updatedAccs = userAccs.map(acc => {
+                            if (acc.name === account) {
+                                const accVal = safeFloat(acc.value);
+                                const newVal = type === 'income' ? accVal + amount : accVal - amount;
+                                return { ...acc, value: newVal.toString() };
+                            }
+                            return acc;
+                        });
+                        localStorage.setItem('user_accounts', JSON.stringify(updatedAccs));
+                    }
                 }
             }
 
@@ -413,7 +441,7 @@ const AddTransactionModal = ({ type, onClose, trans = null }) => {
                                 <ChevronRight size={18} color="var(--color-text-muted)" />
                             </div>
                         </>
-                    ) : type === 'card' ? (
+                    ) : (type === 'card' || (type === 'expense' && card)) ? (
                         <div className="atm-field-item">
                             <div className="atm-icon-circle"><CreditCard size={18} /></div>
                             <select className="atm-input" value={card} onChange={e => setCard(e.target.value)}>

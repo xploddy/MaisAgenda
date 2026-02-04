@@ -615,7 +615,7 @@ const Profile = ({ toggleTheme, currentTheme }) => {
         <div className="profile-page animate-fade-in">
             <header className="options-header">
                 <button className="icon-btn-ghost" onClick={() => navigate('/')}><ChevronLeft size={24} /></button>
-                <h1 className="options-title">Mais Opções</h1>
+                <h1 className="options-title">Configurações</h1>
                 <div style={{ width: 24 }}>
                     <Settings size={22} className="clickable" onClick={() => setSubScreen('settings')} />
                 </div>

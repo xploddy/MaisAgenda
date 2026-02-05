@@ -3,6 +3,7 @@ import { ChevronDown, Calendar, FileText, Tag, Wallet, Paperclip, ChevronRight, 
 import './AddTransactionModal.css';
 import { format, subDays, parseISO, addMonths } from 'date-fns';
 import { supabase } from '../supabaseClient';
+import { sendTelegramMessage } from '../services/telegramService';
 
 const AddTransactionModal = ({ type, onClose, trans = null }) => {
     // type: 'expense' | 'income' | 'transfer' | 'card'
@@ -274,7 +275,18 @@ const AddTransactionModal = ({ type, onClose, trans = null }) => {
         }
 
         if (!error) {
-            // Update Local Storage Balances
+            // Send Telegram Notification
+            const typeLabel = type === 'income' ? '🟢 ENTRADA' : type === 'expense' ? '🔴 SAÍDA' : type === 'transfer' ? '🔵 TRANSFERÊNCIA' : '💳 CARTÃO';
+            const msg = `<b>${typeLabel} REGISTRADA</b>\n\n` +
+                `📝 <b>Desc:</b> ${amount > 0 ? description : trans.title}\n` +
+                `💰 <b>Valor:</b> R$ ${amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n` +
+                `📂 <b>Cat:</b> ${category}\n` +
+                `📅 <b>Data:</b> ${format(parseISO(customDate), 'dd/MM/yyyy')}\n` +
+                `✅ <b>Status:</b> ${isPaid ? 'Pago' : 'Pendente'}`;
+
+            sendTelegramMessage(msg);
+
+            // Update Local Storage Balances (existing logic continues...)
             const wasPending = trans && trans.status !== 'paid';
             const wasPaid = trans && trans.status === 'paid';
             const isNew = !trans;

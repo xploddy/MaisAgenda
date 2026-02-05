@@ -4,7 +4,7 @@ import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
     User, LogOut, Download, Share2, Key, ChevronLeft, Moon, Sun,
-    CreditCard, LayoutGrid, Tag, Upload, Settings, Wallet, Target, TrendingUp, Bookmark, ChevronRight, Calculator, Plus, Trash2, Edit2, X, AlertCircle, Check
+    CreditCard, LayoutGrid, Tag, Upload, Settings, Wallet, Target, TrendingUp, Bookmark, ChevronRight, Calculator, Plus, Trash2, Edit2, X, AlertCircle, Check, Send
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import * as XLSX from 'xlsx';
@@ -210,6 +210,108 @@ const ListManager = ({ title, storageKey, defaultItems, itemRender, onBack, onSe
                     </div>
                 </div>
             )}
+        </div>
+    );
+};
+
+const TelegramIntegration = ({ onBack, supabase }) => {
+    const [botToken, setBotToken] = useState(localStorage.getItem('telegram_bot_token') || '');
+    const [chatId, setChatId] = useState(localStorage.getItem('telegram_chat_id') || '');
+
+    const handleSaveTelegram = async () => {
+        localStorage.setItem('telegram_bot_token', botToken);
+        localStorage.setItem('telegram_chat_id', chatId);
+
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            await supabase.from('profiles').upsert({
+                id: user.id,
+                telegram_token: botToken,
+                telegram_chat_id: chatId
+            });
+        }
+        alert('Configurações do Telegram salvas!');
+        onBack();
+    };
+
+    const testTelegram = async () => {
+        if (!botToken || !chatId) return alert('Preencha o Token e o Chat ID primeiro.');
+        try {
+            const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: chatId,
+                    text: '🚀 Teste de conexão do SmartOrganizer! Seu bot está configurado com sucesso.'
+                })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                alert('Mensagem de teste enviada!');
+            } else {
+                alert(`Erro do Telegram: ${data.description || 'Verifique os dados.'}`);
+            }
+        } catch (e) {
+            alert('Erro na requisição. Verifique sua conexão ou o Token.');
+        }
+    };
+
+    return (
+        <div className="profile-page animate-fade-in">
+            <header className="options-header">
+                <button className="icon-btn-ghost" onClick={onBack}><ChevronLeft size={24} /></button>
+                <h1 className="options-title">Telegram Bot</h1>
+                <div style={{ width: 24 }}></div>
+            </header>
+
+            <div className="dashboard-section" style={{ padding: '0 1rem' }}>
+                <div className="card" style={{ marginBottom: '1.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+                        <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#0088cc', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Send size={20} />
+                        </div>
+                        <div>
+                            <h3 style={{ fontWeight: 800 }}>Vincular Bot</h3>
+                            <p style={{ fontSize: '0.8rem', opacity: 0.6 }}>Integre com o Telegram</p>
+                        </div>
+                    </div>
+
+                    <div style={{ fontSize: '0.85rem', background: 'var(--color-bg)', padding: '1rem', borderRadius: '0.75rem', marginBottom: '1.5rem', border: '1px solid var(--color-border)' }}>
+                        <strong>Passo a passo:</strong>
+                        <ol style={{ paddingLeft: '1.2rem', marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                            <li>Fale com @BotFather no Telegram e crie um novo bot para obter o <strong>API Token</strong>.</li>
+                            <li>Inicie uma conversa com seu novo bot.</li>
+                            <li>Use o bot @userinfobot para descobrir seu <strong>Chat ID</strong>.</li>
+                        </ol>
+                    </div>
+
+                    <label className="form-label">API Token do Bot</label>
+                    <div className="input-container">
+                        <Key size={18} color="var(--color-text-muted)" />
+                        <input className="input-field" placeholder="0000000000:AA..." value={botToken} onChange={e => setBotToken(e.target.value)} />
+                    </div>
+
+                    <label className="form-label">Seu Chat ID (ou do grupo)</label>
+                    <div className="input-container">
+                        <User size={18} color="var(--color-text-muted)" />
+                        <input className="input-field" placeholder="Ex: 12345678" value={chatId} onChange={e => setChatId(e.target.value)} />
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                        <button className="btn" style={{ flex: 1, background: 'var(--color-bg)' }} onClick={testTelegram}>Testar</button>
+                        <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleSaveTelegram}>Salvar</button>
+                    </div>
+                </div>
+
+                <div className="card" style={{ opacity: 0.7 }}>
+                    <h4 style={{ fontSize: '0.9rem', marginBottom: '0.5rem', fontWeight: 700 }}>Funcionalidades em breve:</h4>
+                    <ul style={{ fontSize: '0.8rem', paddingLeft: '1.2rem' }}>
+                        <li>Enviar lançamentos por voz</li>
+                        <li>Notificações de lembretes automáticas</li>
+                        <li>Relatórios semanais em PDF pelo chat</li>
+                    </ul>
+                </div>
+            </div>
         </div>
     );
 };
@@ -571,47 +673,15 @@ const Profile = ({ toggleTheme, currentTheme }) => {
         );
     }
 
-    if (subScreen === 'backup') {
+    if (subScreen === 'telegram') {
         return (
-            <div className="profile-page animate-fade-in">
-                <header className="options-header">
-                    <button className="icon-btn-ghost" onClick={() => setSubScreen(null)}><ChevronLeft size={24} /></button>
-                    <h1 className="options-title">Backup Completo</h1>
-                    <div style={{ width: 24 }}></div>
-                </header>
-
-                <div className="dashboard-section" style={{ padding: '0 1rem' }}>
-                    <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
-                        <Upload size={48} color="var(--color-primary)" style={{ margin: '0 auto 1.5rem', display: 'block' }} />
-                        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1rem' }}>Exportar e Importar</h3>
-                        <p style={{ fontSize: '0.9rem', opacity: 0.7, marginBottom: '2rem' }}>
-                            Mantenha seus dados seguros. O backup completo inclui configurações locais do navegador e todos os lançamentos do banco de dados.
-                        </p>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                            <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleExportFullBackup}>
-                                <Download size={18} /> Exportar Backup Atual
-                            </button>
-
-                            <label className="btn" style={{ width: '100%', background: 'var(--color-surface)', color: 'var(--color-text-main)', border: '1px solid var(--color-border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                                <Upload size={18} /> Restaurar de um Arquivo
-                                <input type="file" accept=".json" onChange={handleImportFullBackup} style={{ display: 'none' }} />
-                            </label>
-                        </div>
-                    </div>
-
-                    <div style={{ marginTop: '2rem', padding: '1rem', background: 'rgba(245, 158, 11, 0.1)', borderRadius: '1rem', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
-                        <div style={{ display: 'flex', gap: '0.75rem', color: '#d97706' }}>
-                            <AlertCircle size={20} />
-                            <div style={{ fontSize: '0.85rem' }}>
-                                <strong>Aviso:</strong> A restauração de um backup substituirá suas configurações atuais. Recomendamos baixar um backup de segurança antes.
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <TelegramIntegration
+                onBack={() => setSubScreen(null)}
+                supabase={supabase}
+            />
         );
     }
+
 
     return (
         <div className="profile-page animate-fade-in">
@@ -668,6 +738,11 @@ const Profile = ({ toggleTheme, currentTheme }) => {
                     </div>
 
                     <div className="menu-section">
+                        <button className="menu-item" onClick={() => setSubScreen('telegram')}>
+                            <Send size={20} className="menu-icon" style={{ color: '#0088cc' }} />
+                            <span className="menu-text">Integração Telegram</span>
+                            <ChevronRight size={16} style={{ opacity: 0.4 }} />
+                        </button>
                         <button className="menu-item" onClick={() => setSubScreen('backup')}>
                             <Upload size={20} className="menu-icon" />
                             <span className="menu-text">Backup e Restauração</span>

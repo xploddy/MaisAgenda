@@ -44,3 +44,5 @@ npm run dev
 - Installable on Android/iOS.
 - Offline support (cached assets).
 - Responsive mobile-first design.
+
+=D

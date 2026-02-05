@@ -267,79 +267,85 @@ const AddTransactionModal = ({ type, onClose, trans = null }) => {
                 const userCards = JSON.parse(localStorage.getItem('user_cards') || '[]');
                 const userGoals = JSON.parse(localStorage.getItem('user_goals') || '[]');
 
+                const oldAmount = trans ? safeFloat(trans.amount) : 0;
+
                 if (type === 'card' || (type === 'expense' && card)) {
-                    // CREDIT CARD LOGIC:
+                    // CREDIT CARD LOGIC: Only update limit if PAID
                     const oldCardMatch = trans?.title.match(/\s?\((.*?)\)$/);
                     const oldCardName = oldCardMatch ? oldCardMatch[1] : null;
 
                     const updatedCards = userCards.map(c => {
                         let newLimit = safeFloat(c.value);
-
-                        if (isNew) {
-                            if (c.name === card && !isPaid) newLimit -= amount;
-                        } else {
-                            if (c.name === oldCardName && c.name !== card) {
-                                // Restore old card if it was pending
-                                if (wasPending) newLimit += safeFloat(trans.amount);
-                            } else if (c.name === card && c.name !== oldCardName) {
-                                // New card: Subtract if pending
-                                if (!isPaid) newLimit -= amount;
-                            } else if (c.name === card && c.name === oldCardName) {
-                                // Same card: handle transition/amount change
-                                if (becamePaid) newLimit += safeFloat(trans.amount);
-                                else if (becamePending) newLimit -= amount;
-                                else if (!isPaid) newLimit += safeFloat(trans.amount) - amount;
-                            }
-                        }
-
+                        if (wasPaid && c.name === oldCardName) newLimit += oldAmount;
+                        if (isPaid && c.name === card) newLimit -= amount;
                         return { ...c, value: newLimit.toString() };
                     });
                     localStorage.setItem('user_cards', JSON.stringify(updatedCards));
                 } else if (type === 'transfer') {
-                    if (isNew || becamePaid) {
-                        // Update SOURCE (Account or Card)
-                        const updatedAccs = userAccs.map(acc => {
-                            if (acc.name === sourceAccount) return { ...acc, value: (safeFloat(acc.value) - amount).toString() };
-                            return acc;
-                        });
-                        const updatedCardsSource = userCards.map(c => {
-                            if (c.name === sourceAccount) return { ...c, value: (safeFloat(c.value) - amount).toString() };
-                            return c;
-                        });
-
-                        // Update DESTINATION (Account, Card or Goal)
-                        const updatedAccsFinal = updatedAccs.map(acc => {
-                            if (acc.name === destAccount) return { ...acc, value: (safeFloat(acc.value) + amount).toString() };
-                            return acc;
-                        });
-                        const updatedCardsFinal = updatedCardsSource.map(c => {
-                            if (c.name === destAccount) return { ...c, value: (safeFloat(c.value) + amount).toString() };
-                            return c;
-                        });
-                        const updatedGoals = userGoals.map(g => {
-                            if (g.name === destAccount) return { ...g, current: (safeFloat(g.current || 0) + amount).toString() };
-                            return g;
-                        });
-
-                        localStorage.setItem('user_accounts', JSON.stringify(updatedAccsFinal));
-                        localStorage.setItem('user_cards', JSON.stringify(updatedCardsFinal));
-                        localStorage.setItem('user_goals', JSON.stringify(updatedGoals));
+                    // TRANSFER LOGIC: Only update balances if PAID
+                    let oldSrc = '';
+                    let oldDst = '';
+                    if (trans) {
+                        const parts = trans.title.split(': ');
+                        const route = parts[parts.length - 1] || '';
+                        const [s, d] = route.split(' -> ');
+                        if (s && d) {
+                            oldSrc = s.replace('[', '').replace(']', '').trim();
+                            oldDst = d.replace('[', '').replace(']', '').trim();
+                        }
                     }
+
+                    // Revert OLD if it was paid
+                    if (wasPaid) {
+                        userAccs.forEach(acc => {
+                            if (acc.name === oldSrc) acc.value = (safeFloat(acc.value) + oldAmount).toString();
+                            if (acc.name === oldDst) acc.value = (safeFloat(acc.value) - oldAmount).toString();
+                        });
+                        userCards.forEach(c => {
+                            if (c.name === oldSrc) c.value = (safeFloat(c.value) + oldAmount).toString();
+                            if (c.name === oldDst) c.value = (safeFloat(c.value) - oldAmount).toString();
+                        });
+                        userGoals.forEach(g => {
+                            if (g.name === oldDst) g.current = (safeFloat(g.current || 0) - oldAmount).toString();
+                        });
+                    }
+
+                    // Apply NEW if it is paid
+                    if (isPaid) {
+                        userAccs.forEach(acc => {
+                            if (acc.name === sourceAccount) acc.value = (safeFloat(acc.value) - amount).toString();
+                            if (acc.name === destAccount) acc.value = (safeFloat(acc.value) + amount).toString();
+                        });
+                        userCards.forEach(c => {
+                            if (c.name === sourceAccount) c.value = (safeFloat(c.value) - amount).toString();
+                            if (c.name === destAccount) c.value = (safeFloat(c.value) + amount).toString();
+                        });
+                        userGoals.forEach(g => {
+                            if (g.name === destAccount) g.current = (safeFloat(g.current || 0) + amount).toString();
+                        });
+                    }
+
+                    localStorage.setItem('user_accounts', JSON.stringify(userAccs));
+                    localStorage.setItem('user_cards', JSON.stringify(userCards));
+                    localStorage.setItem('user_goals', JSON.stringify(userGoals));
                 } else if (account) {
-                    // Income or Expense
-                    // Only update if it became paid or is new and paid
-                    const isNewPaid = isNew && isPaid;
-                    if (isNewPaid || becamePaid) {
-                        const updatedAccs = userAccs.map(acc => {
-                            if (acc.name === account) {
-                                const accVal = safeFloat(acc.value);
-                                const newVal = type === 'income' ? accVal + amount : accVal - amount;
-                                return { ...acc, value: newVal.toString() };
-                            }
-                            return acc;
-                        });
-                        localStorage.setItem('user_accounts', JSON.stringify(updatedAccs));
-                    }
+                    // INCOME / EXPENSE LOGIC: Only update if PAID
+                    const oldAccMatch = trans?.title.match(/\s?\[(.*?)\]$/);
+                    const oldAccName = oldAccMatch ? oldAccMatch[1] : null;
+
+                    const updatedAccs = userAccs.map(acc => {
+                        let val = safeFloat(acc.value);
+                        // Revert old
+                        if (wasPaid && acc.name === oldAccName) {
+                            val = trans.type === 'income' ? val - oldAmount : val + oldAmount;
+                        }
+                        // Apply new
+                        if (isPaid && acc.name === account) {
+                            val = type === 'income' ? val + amount : val - amount;
+                        }
+                        return { ...acc, value: val.toString() };
+                    });
+                    localStorage.setItem('user_accounts', JSON.stringify(updatedAccs));
                 }
             }
 

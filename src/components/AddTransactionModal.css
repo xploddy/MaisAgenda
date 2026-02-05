@@ -271,10 +271,10 @@
     bottom: 0;
     left: 0;
     right: 0;
-    background: white;
+    background: var(--color-surface);
     border-radius: 1.5rem 1.5rem 0 0;
     padding: 1rem;
-    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.2);
     z-index: 10;
     animation: slideUp 0.2s;
 }
@@ -300,7 +300,8 @@
 }
 
 .atm-key:active {
-    background: var(--color-bg);
+    background: var(--color-surface);
+    opacity: 0.7;
 }
 
 .atm-key-action {
@@ -338,4 +339,6 @@
     border: 1px solid var(--color-border);
     font-size: 1rem;
     border-radius: 99px;
+    background: var(--color-bg);
+    color: var(--color-text-main);
 }

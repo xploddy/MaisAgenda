@@ -370,7 +370,7 @@ const AddTransactionModal = ({ type, onClose, trans = null }) => {
                 <div style={{ width: 60 }}></div>
             </div>
 
-            <div className={`atm-value-section ${config.colorClass}`} onClick={() => !trans && setShowKeypad(true)}>
+            <div className={`atm-value-section ${config.colorClass}`} onClick={() => setShowKeypad(true)}>
                 <div className="atm-value-label">Valor da {config.label.toLowerCase()}</div>
                 <div className="atm-value-input">
                     <span style={{ fontSize: '1.5rem', opacity: 0.8 }}>R$</span>

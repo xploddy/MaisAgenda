@@ -673,6 +673,39 @@ const Profile = ({ toggleTheme, currentTheme }) => {
         );
     }
 
+    if (subScreen === 'backup') {
+        return (
+            <div className="profile-page animate-fade-in">
+                <header className="options-header">
+                    <button className="icon-btn-ghost" onClick={() => setSubScreen(null)}><ChevronLeft size={24} /></button>
+                    <h1 className="options-title">Backup Completo</h1>
+                    <div style={{ width: 24 }}></div>
+                </header>
+
+                <div className="dashboard-section" style={{ padding: '0 1rem' }}>
+                    <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
+                        <Upload size={48} color="var(--color-primary)" style={{ margin: '0 auto 1.5rem', display: 'block' }} />
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1rem' }}>Exportar e Importar</h3>
+                        <p style={{ fontSize: '0.9rem', opacity: 0.7, marginBottom: '2rem' }}>
+                            Mantenha seus dados seguros. O backup completo inclui configurações locais do navegador e todos os lançamentos do banco de dados.
+                        </p>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleExportFullBackup}>
+                                <Download size={18} /> Exportar Backup Atual
+                            </button>
+
+                            <label className="btn" style={{ width: '100%', background: 'var(--color-surface)', color: 'var(--color-text-main)', border: '1px solid var(--color-border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                                <Upload size={18} /> Restaurar de um Arquivo
+                                <input type="file" accept=".json" onChange={handleImportFullBackup} style={{ display: 'none' }} />
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     if (subScreen === 'telegram') {
         return (
             <TelegramIntegration

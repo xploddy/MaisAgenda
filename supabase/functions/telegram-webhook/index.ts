@@ -39,7 +39,21 @@ serve(async (req) => {
         let description = text.replace(amountMatch[0], '').trim()
         let category = 'Geral'
 
-        // Tentar extrair categoria se houver ":" (Ex: "Saúde: Remédio 20")
+        // Smart Category Detection
+        const lowText = text.toLowerCase()
+        if (lowText.includes('almoço') || lowText.includes('jantar') || lowText.includes('ifood') || lowText.includes('comer') || lowText.includes('restaurante')) {
+            category = 'Alimentação'
+        } else if (lowText.includes('uber') || lowText.includes('gasolina') || lowText.includes('combustivel') || lowText.includes('ônibus') || lowText.includes('metro')) {
+            category = 'Transporte'
+        } else if (lowText.includes('mercado') || lowText.includes('feira') || lowText.includes('supermercado')) {
+            category = 'Mercado'
+        } else if (lowText.includes('internet') || lowText.includes('luz') || lowText.includes('água') || lowText.includes('aluguel')) {
+            category = 'Moradia'
+        } else if (lowText.includes('venda') || lowText.includes('recebi') || lowText.includes('pix')) {
+            category = 'Receitas'
+        }
+
+        // Manual override with ":" (Ex: "Lazer: Cinema 40")
         if (description.includes(':')) {
             const parts = description.split(':')
             category = parts[0].trim()

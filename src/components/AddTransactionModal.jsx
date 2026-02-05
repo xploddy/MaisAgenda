@@ -89,35 +89,54 @@ const AddTransactionModal = ({ type, onClose, trans = null }) => {
         if (trans) {
             setDisplayValue(String(trans.amount));
 
-            // Try to extract account/card from title: "Title [Account]" or "Title (Card)"
             let cleanedTitle = trans.title;
-            const accMatch = trans.title.match(/\s?\[(.*?)\]$/);
-            const cardMatch = trans.title.match(/\s?\((.*?)\)$/);
+            const typeLower = trans.type.toLowerCase();
 
-            const userAccs = JSON.parse(localStorage.getItem('user_accounts') || '[]');
-            const userCards = JSON.parse(localStorage.getItem('user_cards') || '[]');
+            if (typeLower === 'transfer') {
+                // Remove recurring count e.g. (1/12)
+                let titleNoCount = cleanedTitle.replace(/\s?\(\d+\/\d+\)$/, '');
 
-            if (accMatch) {
-                const accName = accMatch[1];
-                setAccount(accName);
-                setSourceAccount(accName);
-                cleanedTitle = cleanedTitle.replace(/\s?\[.*?\]$/, '');
-            }
+                // Extract "Source -> Dest" part after last colon
+                const parts = titleNoCount.split(': ');
+                const route = parts[parts.length - 1] || '';
+                const [s, d] = route.split(' -> ');
 
-            if (cardMatch) {
-                const cardName = cardMatch[1];
-                setCard(cardName);
-                cleanedTitle = cleanedTitle.replace(/\s?\(.*?\)$/, '');
-            }
+                if (s && d) {
+                    const src = s.replace('[', '').replace(']', '').trim();
+                    const dst = d.replace('[', '').replace(']', '').trim();
+                    setSourceAccount(src);
+                    setDestAccount(dst);
+                    // Description is everything before the last colon
+                    cleanedTitle = parts.slice(0, -1).join(': ');
+                }
+            } else {
+                // Try to extract account/card from title: "Title [Account]" or "Title (Card)"
+                const accMatch = cleanedTitle.match(/\s?\[(.*?)\]$/);
+                const cardMatch = cleanedTitle.match(/\s?\((.*?)\)$/);
 
-            // If no account found in title, use default
-            if (!accMatch && !cardMatch) {
-                const defaultId = localStorage.getItem('defaultAccountId');
-                if (defaultId) {
-                    const defAcc = userAccs.find(a => String(a.id) === String(defaultId));
-                    if (defAcc) {
-                        setAccount(defAcc.name);
-                        setSourceAccount(defAcc.name);
+                if (accMatch) {
+                    const accName = accMatch[1];
+                    setAccount(accName);
+                    setSourceAccount(accName);
+                    cleanedTitle = cleanedTitle.replace(/\s?\[.*?\]$/, '');
+                }
+
+                if (cardMatch) {
+                    const cardName = cardMatch[1];
+                    setCard(cardName);
+                    cleanedTitle = cleanedTitle.replace(/\s?\(.*?\)$/, '');
+                }
+
+                // If no account found in title, use default (only for non-transfer)
+                const userAccs = JSON.parse(localStorage.getItem('user_accounts') || '[]');
+                if (!accMatch && !cardMatch) {
+                    const defaultId = localStorage.getItem('defaultAccountId');
+                    if (defaultId) {
+                        const defAcc = userAccs.find(a => String(a.id) === String(defaultId));
+                        if (defAcc) {
+                            setAccount(defAcc.name);
+                            setSourceAccount(defAcc.name);
+                        }
                     }
                 }
             }
@@ -271,7 +290,10 @@ const AddTransactionModal = ({ type, onClose, trans = null }) => {
 
                 if (type === 'card' || (type === 'expense' && card)) {
                     // CREDIT CARD LOGIC: Only update limit if PAID
-                    const oldCardMatch = trans?.title.match(/\s?\((.*?)\)$/);
+                    let titleClean = trans?.title || '';
+                    titleClean = titleClean.replace(/\s?\(\d+\/\d+\)$/, ''); // Remove (1/12)
+
+                    const oldCardMatch = titleClean.match(/\s?\((.*?)\)$/);
                     const oldCardName = oldCardMatch ? oldCardMatch[1] : null;
 
                     const updatedCards = userCards.map(c => {
@@ -286,7 +308,8 @@ const AddTransactionModal = ({ type, onClose, trans = null }) => {
                     let oldSrc = '';
                     let oldDst = '';
                     if (trans) {
-                        const parts = trans.title.split(': ');
+                        let titleClean = trans.title.replace(/\s?\(\d+\/\d+\)$/, ''); // Remove (1/12)
+                        const parts = titleClean.split(': ');
                         const route = parts[parts.length - 1] || '';
                         const [s, d] = route.split(' -> ');
                         if (s && d) {
@@ -330,7 +353,10 @@ const AddTransactionModal = ({ type, onClose, trans = null }) => {
                     localStorage.setItem('user_goals', JSON.stringify(userGoals));
                 } else if (account) {
                     // INCOME / EXPENSE LOGIC: Only update if PAID
-                    const oldAccMatch = trans?.title.match(/\s?\[(.*?)\]$/);
+                    let titleClean = trans?.title || '';
+                    titleClean = titleClean.replace(/\s?\(\d+\/\d+\)$/, ''); // Remove (1/12)
+
+                    const oldAccMatch = titleClean.match(/\s?\[(.*?)\]$/);
                     const oldAccName = oldAccMatch ? oldAccMatch[1] : null;
 
                     const updatedAccs = userAccs.map(acc => {

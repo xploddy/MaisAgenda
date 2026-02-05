@@ -28,9 +28,21 @@ const ListManager = ({ title, storageKey, defaultItems, itemRender, onBack, onSe
         else setItems(defaultItems);
     }, [storageKey]);
 
-    const saveItems = (newItems) => {
+    const saveItems = async (newItems) => {
         setItems(newItems);
         localStorage.setItem(storageKey, JSON.stringify(newItems));
+
+        // Sync to Supabase for Telegram Bot access
+        if (storageKey === 'user_cards' || storageKey === 'user_accounts') {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const column = storageKey === 'user_cards' ? 'user_cards' : 'user_accounts';
+                await supabase.from('profiles').upsert({
+                    id: user.id,
+                    [column]: newItems
+                });
+            }
+        }
     };
 
     const handleOpenAdd = () => {

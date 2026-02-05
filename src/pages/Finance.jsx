@@ -82,35 +82,51 @@ const Finance = ({ toggleTheme, currentTheme }) => {
     const userAccs = JSON.parse(localStorage.getItem('user_accounts') || '[]');
     const defAccName = userAccs.find(a => String(a.id) === String(defaultId))?.name;
 
-    const incomeTotal = filteredTransactions.reduce((acc, t) => {
+    // Paid Totals (for balance)
+    const paidIncome = filteredTransactions.reduce((acc, t) => {
+        if (t.status === 'pending' || t.status === 'planned') return acc;
         const type = t.type.toLowerCase();
         if (type === 'income') {
             const accMatch = t.title.match(/\s?\[(.*?)\]$/);
-            if (!accMatch || (defAccName && accMatch[1] === defAccName)) {
-                return acc + Number(t.amount);
-            }
+            if (!accMatch || (defAccName && accMatch[1] === defAccName)) return acc + Number(t.amount);
         }
-        if (type === 'transfer' && defAccName) {
-            if (t.title.includes(`-> [${defAccName}]`)) return acc + Number(t.amount);
-        }
+        if (type === 'transfer' && defAccName && t.title.includes(`-> [${defAccName}]`)) return acc + Number(t.amount);
         return acc;
     }, 0);
 
-    const expenseTotal = filteredTransactions.reduce((acc, t) => {
+    const paidExpense = filteredTransactions.reduce((acc, t) => {
+        if (t.status === 'pending' || t.status === 'planned') return acc;
         const type = t.type.toLowerCase();
         if (type === 'expense') {
             const accMatch = t.title.match(/\s?\[(.*?)\]$/);
-            if (!accMatch || (defAccName && accMatch[1] === defAccName)) {
-                return acc + Number(t.amount);
-            }
+            if (!accMatch || (defAccName && accMatch[1] === defAccName)) return acc + Number(t.amount);
         }
-        if (type === 'transfer' && defAccName) {
-            if (t.title.includes(`[${defAccName}] ->`)) return acc + Number(t.amount);
-        }
+        if (type === 'transfer' && defAccName && t.title.includes(`[${defAccName}] ->`)) return acc + Number(t.amount);
         return acc;
     }, 0);
 
-    const balanceTotal = incomeTotal - expenseTotal;
+    // Total Totals (paid + pending, for visual pills)
+    const totalIncome = filteredTransactions.reduce((acc, t) => {
+        const type = t.type.toLowerCase();
+        if (type === 'income') {
+            const accMatch = t.title.match(/\s?\[(.*?)\]$/);
+            if (!accMatch || (defAccName && accMatch[1] === defAccName)) return acc + Number(t.amount);
+        }
+        if (type === 'transfer' && defAccName && t.title.includes(`-> [${defAccName}]`)) return acc + Number(t.amount);
+        return acc;
+    }, 0);
+
+    const totalExpense = filteredTransactions.reduce((acc, t) => {
+        const type = t.type.toLowerCase();
+        if (type === 'expense') {
+            const accMatch = t.title.match(/\s?\[(.*?)\]$/);
+            if (!accMatch || (defAccName && accMatch[1] === defAccName)) return acc + Number(t.amount);
+        }
+        if (type === 'transfer' && defAccName && t.title.includes(`[${defAccName}] ->`)) return acc + Number(t.amount);
+        return acc;
+    }, 0);
+
+    const balanceTotal = paidIncome - paidExpense;
 
     const expensesByCategory = filteredTransactions
         .filter(t => {
@@ -127,7 +143,7 @@ const Finance = ({ toggleTheme, currentTheme }) => {
         ? Object.keys(expensesByCategory).map(key => ({
             name: key,
             value: expensesByCategory[key],
-            percent: ((expensesByCategory[key] / expenseTotal) * 100).toFixed(0)
+            percent: ((expensesByCategory[key] / totalExpense) * 100).toFixed(0)
         }))
         : [];
 
@@ -147,18 +163,44 @@ const Finance = ({ toggleTheme, currentTheme }) => {
                     <span className="label">Saldo do Mês</span>
                     <span className="value">R$ {balanceTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                     <div className="summary-pills">
-                        <div className="pill income"><TrendingUp size={12} /> {incomeTotal.toLocaleString('pt-BR')}</div>
-                        <div className="pill expense"><TrendingDown size={12} /> {expenseTotal.toLocaleString('pt-BR')}</div>
+                        <div className="pill income"><TrendingUp size={12} /> {totalIncome.toLocaleString('pt-BR')}</div>
+                        <div className="pill expense"><TrendingDown size={12} /> {totalExpense.toLocaleString('pt-BR')}</div>
                     </div>
                 </div>
                 <div className="mini-chart" style={{ width: 80, height: 80 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                            <Pie data={[{ value: Math.max(0.1, incomeTotal) }, { value: Math.max(0.1, expenseTotal) }]} innerRadius={25} outerRadius={35} dataKey="value">
-                                <Cell fill="#10b981" /><Cell fill="#f43f5e" />
-                            </Pie>
-                        </PieChart>
-                    </ResponsiveContainer>
+                    <wrapper style={{ position: 'relative', width: '100%', height: '100%' }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie
+                                    data={[
+                                        { value: Math.max(0.1, paidIncome) },
+                                        { value: Math.max(0.1, paidExpense) }
+                                    ]}
+                                    innerRadius={25}
+                                    outerRadius={35}
+                                    dataKey="value"
+                                    stroke="none"
+                                >
+                                    <Cell fill="#10b981" />
+                                    <Cell fill="#f43f5e" />
+                                </Pie>
+                                <Pie
+                                    data={[
+                                        { value: Math.max(0.1, totalIncome) },
+                                        { value: Math.max(0.1, totalExpense) }
+                                    ]}
+                                    innerRadius={38}
+                                    outerRadius={42}
+                                    dataKey="value"
+                                    stroke="none"
+                                    opacity={0.3}
+                                >
+                                    <Cell fill="#10b981" />
+                                    <Cell fill="#f43f5e" />
+                                </Pie>
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </wrapper>
                 </div>
             </div>
 

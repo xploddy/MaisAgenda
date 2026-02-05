@@ -242,6 +242,7 @@ const Profile = ({ toggleTheme, currentTheme }) => {
                 });
 
                 const inc = thisMonth.reduce((acc, t) => {
+                    if (t.status === 'pending' || t.status === 'planned') return acc;
                     if (t.type === 'income') {
                         const accMatch = t.title.match(/\s?\[(.*?)\]$/);
                         if (!accMatch || (defAccName && accMatch[1] === defAccName)) return acc + Number(t.amount);
@@ -251,6 +252,7 @@ const Profile = ({ toggleTheme, currentTheme }) => {
                 }, 0);
 
                 const exp = thisMonth.reduce((acc, t) => {
+                    if (t.status === 'pending' || t.status === 'planned') return acc;
                     if (t.type === 'expense') {
                         const accMatch = t.title.match(/\s?\[(.*?)\]$/);
                         if (!accMatch || (defAccName && accMatch[1] === defAccName)) return acc + Number(t.amount);

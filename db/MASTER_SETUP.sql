@@ -58,13 +58,24 @@ create table if not exists calendar_events (
   user_id uuid references auth.users not null
 );
 
--- 6. Configurar Segurança (RLS)
+-- 6. Tabela de PERFIL (Profiles)
+create table if not exists profiles (
+  id uuid references auth.users on delete cascade primary key,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  nickname text,
+  theme text default 'light',
+  default_account_id text,
+  start_month_day text default '1'
+);
+
+-- 7. Configurar Segurança (RLS)
 alter table tasks enable row level security;
 alter table shopping_items enable row level security;
 alter table transactions enable row level security;
 alter table calendar_events enable row level security;
+alter table profiles enable row level security;
 
--- 7. Criar Políticas de Acesso (Dando erro se já existir, usamos 'do' block)
+-- 8. Criar Políticas de Acesso (Dando erro se já existir, usamos 'do' block)
 do $$
 begin
     -- Tarefas
@@ -82,6 +93,10 @@ begin
     -- Planejamento
     if not exists (select 1 from pg_policies where policyname = 'planning_owner_policy') then
         create policy "planning_owner_policy" on calendar_events for all using (auth.uid() = user_id);
+    end if;
+    -- Perfil
+    if not exists (select 1 from pg_policies where policyname = 'profiles_owner_policy') then
+        create policy "profiles_owner_policy" on profiles for all using (auth.uid() = id);
     end if;
 end
 $$;

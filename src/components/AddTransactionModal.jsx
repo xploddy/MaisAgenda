@@ -274,6 +274,53 @@ const AddTransactionModal = ({ type, onClose, trans = null }) => {
             error = insertError;
         }
 
+        if (!error && !isPlanning) {
+            // === Atualiza saldo da conta se não for planejamento ===
+            if (type === 'income' || type === 'expense') {
+                // Pega a conta correta
+                const userAccs = JSON.parse(localStorage.getItem('user_accounts') || '[]');
+                const accObj = userAccs.find(a => a.name === account);
+                if (accObj) {
+                    const newBalance = type === 'income'
+                        ? safeFloat(accObj.value) + amount
+                        : safeFloat(accObj.value) - amount;
+
+                    await supabase.from('accounts')
+                        .update({ balance: newBalance })
+                        .eq('id', accObj.id);
+                }
+            }
+
+            // === Atualiza saldo do cartão se for cartão ===
+            if (type === 'card' || (type === 'expense' && card)) {
+                const userCards = JSON.parse(localStorage.getItem('user_cards') || '[]');
+                const cardObj = userCards.find(c => c.name === card);
+                if (cardObj) {
+                    const newBalance = safeFloat(cardObj.value) - amount;
+                    await supabase.from('cards')
+                        .update({ balance: newBalance })
+                        .eq('id', cardObj.id);
+                }
+            }
+
+            // === Atualiza saldo para transferências ===
+            if (type === 'transfer') {
+                const srcObj = accountList.find(a => a.name === sourceAccount);
+                const dstObj = accountList.find(a => a.name === destAccount);
+
+                if (srcObj && dstObj) {
+                    await supabase.from('accounts')
+                        .update({ balance: safeFloat(srcObj.value) - amount })
+                        .eq('id', srcObj.id);
+
+                    await supabase.from('accounts')
+                        .update({ balance: safeFloat(dstObj.value) + amount })
+                        .eq('id', dstObj.id);
+                }
+            }
+        }
+
+
         if (!error) {
             // Send Telegram Notification
             const typeLabel = type === 'income' ? '🟢 ENTRADA' : type === 'expense' ? '🔴 SAÍDA' : type === 'transfer' ? '🔵 TRANSFERÊNCIA' : '💳 CARTÃO';

@@ -165,6 +165,7 @@ Mensagem: "${text}"`
     }
 }
 
+// WIZARD MODE
 async function handleWizard(chatId: any, text: string, session: any, profile: any, supabase: any, token: string) {
     const state = session.state
     let data = { ...(session.data || {}) }
@@ -213,6 +214,7 @@ async function handleWizard(chatId: any, text: string, session: any, profile: an
     return new Response("ok")
 }
 
+// CALLBACK HANDLER
 async function handleCallback(cb: any, supabase: any, token: string) {
     const chatId = cb.message.chat.id
     const [action, ...params] = cb.data.split('|')
@@ -259,23 +261,14 @@ async function handleCallback(cb: any, supabase: any, token: string) {
     else if (action === 'item_sel') {
         console.log("🎯 ITEM SELECTED, params:", params)
         const itemType = params[0]
-        const itemName = params.slice(1).join('|').trim()  // Remove espaços extras
+        const itemName = params.slice(1).join('|').trim() // sanitize
 
-        // Recupera ou cria sessão temporária
-        let { data: session } = await supabase
-            .from('bot_sessions')
-            .select('*')
-            .eq('chat_id', chatId.toString())
-            .single()
-
+        // RECUPERA OU CRIA SESSÃO
+        let { data: session } = await supabase.from('bot_sessions').select('*').eq('chat_id', chatId.toString()).single()
         if (!session) {
             console.log("⚠️ Nenhuma sessão existente, criando temporária...")
             await startSession(chatId, p.id, 'awaiting_item', {}, supabase)
-            const { data: newSession } = await supabase
-                .from('bot_sessions')
-                .select('*')
-                .eq('chat_id', chatId.toString())
-                .single()
+            const { data: newSession } = await supabase.from('bot_sessions').select('*').eq('chat_id', chatId.toString()).single()
             session = newSession
         }
 
@@ -285,10 +278,10 @@ async function handleCallback(cb: any, supabase: any, token: string) {
         return await finalizeTransaction(chatId, p, sessionData, itemType, itemName, supabase, token)
     }
 
-
     return new Response("ok")
 }
 
+// PROCESS TRANSACTION
 async function processTransaction(chatId: any, profile: any, data: any, supabase: any, token: string) {
     console.log("⚙️ PROCESS:", JSON.stringify(data))
 
@@ -304,30 +297,31 @@ async function processTransaction(chatId: any, profile: any, data: any, supabase
 
     console.log(`💳 ${cards.length} cards, 🏦 ${accs.length} accounts, type=${type}`)
 
-    // Multiple cards
+    // MULTI-CARTÕES
     if (type === 'card' && cards.length > 1) {
-        await updateSession(chatId, profile.id, 'awaiting_item', { ...data, category, status, date }, supabase)
-        const btns = cards.map((c: any) => [{ text: c.name, callback_data: `item_sel|card|${c.name}` }])
+        await startSession(chatId, profile.id, 'awaiting_item', { ...data, category, status, date }, supabase)
+        const btns = cards.map((c: any) => [{ text: c.name, callback_data: `item_sel|card|${c.name.trim()}` }])
         await reply(chatId, `💳 Qual cartão?`, token, { inline_keyboard: btns })
         return new Response("ok")
     }
 
-    // Multiple accounts
+    // MULTI-ACCOUNTS
     if (['income', 'expense'].includes(type) && accs.length > 1) {
         console.log("🏦 Asking for account selection...")
-        await updateSession(chatId, profile.id, 'awaiting_item', { ...data, category, status, date }, supabase)
-        const btns = accs.map((a: any) => [{ text: a.name, callback_data: `item_sel|acc|${a.name}` }])
+        await startSession(chatId, profile.id, 'awaiting_item', { ...data, category, status, date }, supabase)
+        const btns = accs.map((a: any) => [{ text: a.name, callback_data: `item_sel|acc|${a.name.trim()}` }])
         await reply(chatId, `🏦 Qual conta?`, token, { inline_keyboard: btns })
         return new Response("ok")
     }
 
-    // Single or default
+    // SINGLE OR DEFAULT
     console.log("✅ Single item, finalizing...")
     const itemType = type === 'card' ? 'card' : 'acc'
     const itemName = type === 'card' ? (cards[0]?.name || 'Crédito') : (accs[0]?.name || 'Padrão')
     return await finalizeTransaction(chatId, profile, { ...data, category, status, date }, itemType, itemName, supabase, token)
 }
 
+// FINALIZE TRANSACTION
 async function finalizeTransaction(chatId: any, profile: any, data: any, itemType: string, itemName: string, supabase: any, token: string) {
     console.log("💾 FINALIZE:", JSON.stringify(data), `item=${itemType}:${itemName}`)
 
@@ -406,13 +400,12 @@ async function updateSession(chatId: any, userId: string, state: string, data: a
 }
 
 async function clearSession(chatId: any, supabase: any) {
-    console.log("🗑️ CLEAR SESSION")
     await supabase.from('bot_sessions').delete().eq('chat_id', String(chatId))
 }
 
-async function reply(chatId: any, text: string, token: string, markup: any = null) {
-    const payload: any = { chat_id: chatId, text, parse_mode: 'HTML' }
-    if (markup) payload.reply_markup = markup
+// REPLY HELPER
+async function reply(chatId: any, text: string, token: string, options?: any) {
+    const payload = { chat_id: chatId, text, parse_mode: 'HTML', ...options }
     await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

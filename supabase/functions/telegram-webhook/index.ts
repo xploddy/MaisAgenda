@@ -259,18 +259,32 @@ async function handleCallback(cb: any, supabase: any, token: string) {
     else if (action === 'item_sel') {
         console.log("🎯 ITEM SELECTED, params:", params)
         const itemType = params[0]
-        const itemName = params.slice(1).join('|')
+        const itemName = params.slice(1).join('|').trim()  // Remove espaços extras
 
-        const { data: session } = await supabase.from('bot_sessions').select('*').eq('chat_id', chatId.toString()).single()
-        console.log("📦 Session data for finalization:", JSON.stringify(session?.data))
+        // Recupera ou cria sessão temporária
+        let { data: session } = await supabase
+            .from('bot_sessions')
+            .select('*')
+            .eq('chat_id', chatId.toString())
+            .single()
 
-        if (session && session.data) {
-            return await finalizeTransaction(chatId, p, session.data, itemType, itemName, supabase, token)
-        } else {
-            console.error("❌ No session found for item selection!")
-            await reply(chatId, `❌ Erro: sessão perdida. Digite <code>ajuda</code> para recomeçar.`, token)
+        if (!session) {
+            console.log("⚠️ Nenhuma sessão existente, criando temporária...")
+            await startSession(chatId, p.id, 'awaiting_item', {}, supabase)
+            const { data: newSession } = await supabase
+                .from('bot_sessions')
+                .select('*')
+                .eq('chat_id', chatId.toString())
+                .single()
+            session = newSession
         }
+
+        const sessionData = session.data || {}
+        console.log("📦 Session data for finalization:", JSON.stringify(sessionData))
+
+        return await finalizeTransaction(chatId, p, sessionData, itemType, itemName, supabase, token)
     }
+
 
     return new Response("ok")
 }

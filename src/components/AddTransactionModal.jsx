@@ -275,49 +275,8 @@ const AddTransactionModal = ({ type, onClose, trans = null }) => {
         }
 
         if (!error && !isPlanning) {
-            // === Atualiza saldo da conta se não for planejamento ===
-            if (type === 'income' || type === 'expense') {
-                // Pega a conta correta
-                const userAccs = JSON.parse(localStorage.getItem('user_accounts') || '[]');
-                const accObj = userAccs.find(a => a.name === account);
-                if (accObj) {
-                    const newBalance = type === 'income'
-                        ? safeFloat(accObj.value) + amount
-                        : safeFloat(accObj.value) - amount;
-
-                    await supabase.from('accounts')
-                        .update({ balance: newBalance })
-                        .eq('id', accObj.id);
-                }
-            }
-
-            // === Atualiza saldo do cartão se for cartão ===
-            if (type === 'card' || (type === 'expense' && card)) {
-                const userCards = JSON.parse(localStorage.getItem('user_cards') || '[]');
-                const cardObj = userCards.find(c => c.name === card);
-                if (cardObj) {
-                    const newBalance = safeFloat(cardObj.value) - amount;
-                    await supabase.from('cards')
-                        .update({ balance: newBalance })
-                        .eq('id', cardObj.id);
-                }
-            }
-
-            // === Atualiza saldo para transferências ===
-            if (type === 'transfer') {
-                const srcObj = accountList.find(a => a.name === sourceAccount);
-                const dstObj = accountList.find(a => a.name === destAccount);
-
-                if (srcObj && dstObj) {
-                    await supabase.from('accounts')
-                        .update({ balance: safeFloat(srcObj.value) - amount })
-                        .eq('id', srcObj.id);
-
-                    await supabase.from('accounts')
-                        .update({ balance: safeFloat(dstObj.value) + amount })
-                        .eq('id', dstObj.id);
-                }
-            }
+            // === Os saldos são atualizados no localStorage mais abaixo e sincronizados com a tabela profiles ===
+            console.log("Transação processada, atualizando saldos...");
         }
 
 
@@ -436,6 +395,21 @@ const AddTransactionModal = ({ type, onClose, trans = null }) => {
 
             if (calendarPayloads.length > 0) {
                 await supabase.from('calendar_events').insert(calendarPayloads);
+            }
+
+            // === Sync LocalStorage back to Supabase Profiles ===
+            if (!isPlanning) {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    const userAccs = JSON.parse(localStorage.getItem('user_accounts') || '[]');
+                    const userCards = JSON.parse(localStorage.getItem('user_cards') || '[]');
+                    const userGoals = JSON.parse(localStorage.getItem('user_goals') || '[]');
+                    await supabase.from('profiles').update({
+                        user_accounts: userAccs,
+                        user_cards: userCards,
+                        user_goals: userGoals
+                    }).eq('id', user.id);
+                }
             }
         }
 

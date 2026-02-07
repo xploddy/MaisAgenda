@@ -160,6 +160,7 @@ function parseMessage(textRaw: string, accounts: any[], cards: any[]) {
 ========================= */
 
 async function finalizeTransaction(chatId: any, profile: any, d: any, supabase: any, token: string) {
+    // 1. Inserir transação
     await supabase.from("transactions").insert({
         user_id: profile.id,
         title: d.title,
@@ -169,6 +170,40 @@ async function finalizeTransaction(chatId: any, profile: any, d: any, supabase: 
         date: d.date,
         status: d.status
     })
+
+    // 2. Atualizar Saldos se estiver pago
+    if (d.status === "paid") {
+        let accounts = [...(profile.user_accounts || [])]
+        let cards = [...(profile.user_cards || [])]
+        let updated = false
+
+        if (d.card) {
+            cards = cards.map(c => {
+                if (c.name === d.card) {
+                    updated = true
+                    return { ...c, value: (Number(c.value || 0) - d.amount).toString() }
+                }
+                return c
+            })
+        } else if (d.account) {
+            accounts = accounts.map(a => {
+                if (a.name === d.account) {
+                    updated = true
+                    const current = Number(a.value || 0)
+                    const newValue = d.type === "income" ? current + d.amount : current - d.amount
+                    return { ...a, value: newValue.toString() }
+                }
+                return a
+            })
+        }
+
+        if (updated) {
+            await supabase.from("profiles").update({
+                user_accounts: accounts,
+                user_cards: cards
+            }).eq("id", profile.id)
+        }
+    }
 
     const emoji = d.status === "paid" ? "✅" : "⏳"
     await reply(chatId,

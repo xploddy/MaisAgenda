@@ -275,8 +275,7 @@ const AddTransactionModal = ({ type, onClose, trans = null }) => {
         }
 
         if (!error && !isPlanning) {
-            // === Os saldos são atualizados no localStorage mais abaixo e sincronizados com a tabela profiles ===
-            console.log("Transação processada, atualizando saldos...");
+            console.log("Transação processada com sucesso no Supabase.");
         }
 
 
@@ -300,116 +299,72 @@ const AddTransactionModal = ({ type, onClose, trans = null }) => {
             const becamePending = wasPaid && !isPaid;
 
             if (!isPlanning) {
-                const userAccs = JSON.parse(localStorage.getItem('user_accounts') || '[]');
-                const userCards = JSON.parse(localStorage.getItem('user_cards') || '[]');
-                const userGoals = JSON.parse(localStorage.getItem('user_goals') || '[]');
+                let userAccs = JSON.parse(localStorage.getItem('user_accounts') || '[]');
+                let userCards = JSON.parse(localStorage.getItem('user_cards') || '[]');
+                let userGoals = JSON.parse(localStorage.getItem('user_goals') || '[]');
 
                 const oldAmount = trans ? safeFloat(trans.amount) : 0;
+                const newAmount = amount;
 
-                if (type === 'card' || (type === 'expense' && card)) {
-                    // CREDIT CARD LOGIC: Only update limit if PAID
-                    let titleClean = trans?.title || '';
-                    titleClean = titleClean.replace(/\s?\(\d+\/\d+\)$/, ''); // Remove (1/12)
+                // --- 1. ESTORNAR VALOR ANTIGO (SE PAGO) ---
+                if (wasPaid) {
+                    let titleClean = trans.title.replace(/\s?\(\d+\/\d+\)$/, '');
 
-                    const oldCardMatch = titleClean.match(/\s?\((.*?)\)$/);
-                    const oldCardName = oldCardMatch ? oldCardMatch[1] : null;
-
-                    const updatedCards = userCards.map(c => {
-                        let newLimit = safeFloat(c.value);
-                        if (wasPaid && c.name === oldCardName) newLimit += oldAmount;
-                        if (isPaid && c.name === card) newLimit -= amount;
-                        return { ...c, value: newLimit.toString() };
-                    });
-                    localStorage.setItem('user_cards', JSON.stringify(updatedCards));
-                } else if (type === 'transfer') {
-                    // TRANSFER LOGIC: Only update balances if PAID
-                    let oldSrc = '';
-                    let oldDst = '';
-                    if (trans) {
-                        let titleClean = trans.title.replace(/\s?\(\d+\/\d+\)$/, ''); // Remove (1/12)
+                    if (trans.type === 'transfer') {
                         const parts = titleClean.split(': ');
                         const route = parts[parts.length - 1] || '';
                         const [s, d] = route.split(' -> ');
-                        if (s && d) {
-                            oldSrc = s.replace('[', '').replace(']', '').trim();
-                            oldDst = d.replace('[', '').replace(']', '').trim();
+                        const oldSrc = s?.replace('[', '').replace(']', '').trim();
+                        const oldDst = d?.replace('[', '').replace(']', '').trim();
+
+                        userAccs = userAccs.map(a => a.name === oldSrc ? { ...a, value: (safeFloat(a.value) + oldAmount).toString() } : (a.name === oldDst ? { ...a, value: (safeFloat(a.value) - oldAmount).toString() } : a));
+                        userCards = userCards.map(c => c.name === oldSrc ? { ...c, value: (safeFloat(c.value) + oldAmount).toString() } : (c.name === oldDst ? { ...c, value: (safeFloat(c.value) - oldAmount).toString() } : c));
+                        userGoals = userGoals.map(g => g.name === oldDst ? { ...g, current: (safeFloat(g.current) - oldAmount).toString() } : g);
+                    } else {
+                        // Income / Expense / Card
+                        const oldAccMatch = titleClean.match(/\s?\[(.*?)\]$/);
+                        const oldCardMatch = titleClean.match(/\s?\((.*?)\)$/);
+                        const oldAccName = oldAccMatch ? oldAccMatch[1] : null;
+                        const oldCardName = oldCardMatch ? oldCardMatch[1] : null;
+
+                        if (oldCardName) {
+                            userCards = userCards.map(c => c.name === oldCardName ? { ...c, value: (safeFloat(c.value) + oldAmount).toString() } : c);
+                        } else if (oldAccName) {
+                            userAccs = userAccs.map(a => a.name === oldAccName ? { ...a, value: (trans.type === 'income' ? safeFloat(a.value) - oldAmount : safeFloat(a.value) + oldAmount).toString() } : a);
                         }
                     }
-
-                    // Revert OLD if it was paid
-                    if (wasPaid) {
-                        userAccs.forEach(acc => {
-                            if (acc.name === oldSrc) acc.value = (safeFloat(acc.value) + oldAmount).toString();
-                            if (acc.name === oldDst) acc.value = (safeFloat(acc.value) - oldAmount).toString();
-                        });
-                        userCards.forEach(c => {
-                            if (c.name === oldSrc) c.value = (safeFloat(c.value) + oldAmount).toString();
-                            if (c.name === oldDst) c.value = (safeFloat(c.value) - oldAmount).toString();
-                        });
-                        userGoals.forEach(g => {
-                            if (g.name === oldDst) g.current = (safeFloat(g.current || 0) - oldAmount).toString();
-                        });
-                    }
-
-                    // Apply NEW if it is paid
-                    if (isPaid) {
-                        userAccs.forEach(acc => {
-                            if (acc.name === sourceAccount) acc.value = (safeFloat(acc.value) - amount).toString();
-                            if (acc.name === destAccount) acc.value = (safeFloat(acc.value) + amount).toString();
-                        });
-                        userCards.forEach(c => {
-                            if (c.name === sourceAccount) c.value = (safeFloat(c.value) - amount).toString();
-                            if (c.name === destAccount) c.value = (safeFloat(c.value) + amount).toString();
-                        });
-                        userGoals.forEach(g => {
-                            if (g.name === destAccount) g.current = (safeFloat(g.current || 0) + amount).toString();
-                        });
-                    }
-
-                    localStorage.setItem('user_accounts', JSON.stringify(userAccs));
-                    localStorage.setItem('user_cards', JSON.stringify(userCards));
-                    localStorage.setItem('user_goals', JSON.stringify(userGoals));
-                } else if (account) {
-                    // INCOME / EXPENSE LOGIC: Only update if PAID
-                    let titleClean = trans?.title || '';
-                    titleClean = titleClean.replace(/\s?\(\d+\/\d+\)$/, ''); // Remove (1/12)
-
-                    const oldAccMatch = titleClean.match(/\s?\[(.*?)\]$/);
-                    const oldAccName = oldAccMatch ? oldAccMatch[1] : null;
-
-                    const updatedAccs = userAccs.map(acc => {
-                        let val = safeFloat(acc.value);
-                        // Revert old
-                        if (wasPaid && acc.name === oldAccName) {
-                            val = trans.type === 'income' ? val - oldAmount : val + oldAmount;
-                        }
-                        // Apply new
-                        if (isPaid && acc.name === account) {
-                            val = type === 'income' ? val + amount : val - amount;
-                        }
-                        return { ...acc, value: val.toString() };
-                    });
-                    localStorage.setItem('user_accounts', JSON.stringify(updatedAccs));
                 }
-            }
 
-            if (calendarPayloads.length > 0) {
-                await supabase.from('calendar_events').insert(calendarPayloads);
-            }
+                // --- 2. APLICAR NOVO VALOR (SE PAGO) ---
+                if (isPaid) {
+                    if (type === 'transfer') {
+                        userAccs = userAccs.map(a => a.name === sourceAccount ? { ...a, value: (safeFloat(a.value) - newAmount).toString() } : (a.name === destAccount ? { ...a, value: (safeFloat(a.value) + newAmount).toString() } : a));
+                        userCards = userCards.map(c => c.name === sourceAccount ? { ...c, value: (safeFloat(c.value) - newAmount).toString() } : (c.name === destAccount ? { ...c, value: (safeFloat(c.value) + newAmount).toString() } : c));
+                        userGoals = userGoals.map(g => g.name === destAccount ? { ...g, current: (safeFloat(g.current) + newAmount).toString() } : g);
+                    } else if (type === 'card' || (type === 'expense' && card)) {
+                        userCards = userCards.map(c => c.name === card ? { ...c, value: (safeFloat(c.value) - newAmount).toString() } : c);
+                    } else if (account) {
+                        userAccs = userAccs.map(a => a.name === account ? { ...a, value: (type === 'income' ? safeFloat(a.value) + newAmount : safeFloat(a.value) - newAmount).toString() } : a);
+                    }
+                }
 
-            // === Sync LocalStorage back to Supabase Profiles ===
-            if (!isPlanning) {
+                // --- 3. PERSISTIR E SINCRONIZAR ---
+                localStorage.setItem('user_accounts', JSON.stringify(userAccs));
+                localStorage.setItem('user_cards', JSON.stringify(userCards));
+                localStorage.setItem('user_goals', JSON.stringify(userGoals));
+
                 const { data: { user } } = await supabase.auth.getUser();
                 if (user) {
-                    const userAccs = JSON.parse(localStorage.getItem('user_accounts') || '[]');
-                    const userCards = JSON.parse(localStorage.getItem('user_cards') || '[]');
-                    const userGoals = JSON.parse(localStorage.getItem('user_goals') || '[]');
                     await supabase.from('profiles').update({
                         user_accounts: userAccs,
                         user_cards: userCards,
                         user_goals: userGoals
                     }).eq('id', user.id);
                 }
+            }
+
+            if (calendarPayloads.length > 0) {
+                await supabase.from('calendar_events').insert(calendarPayloads);
             }
         }
 

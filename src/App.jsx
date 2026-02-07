@@ -36,7 +36,7 @@ function App() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('theme, default_account_id, start_month_day, user_accounts, user_cards')
+        .select('theme, default_account_id, start_month_day, user_accounts, user_cards, user_goals')
         .eq('id', userId)
         .single();
 
@@ -58,6 +58,9 @@ function App() {
         }
         if (data.user_cards && data.user_cards.length > 0) {
           localStorage.setItem('user_cards', JSON.stringify(data.user_cards));
+        }
+        if (data.user_goals && data.user_goals.length > 0) {
+          localStorage.setItem('user_goals', JSON.stringify(data.user_goals));
         }
       }
     } catch (error) {

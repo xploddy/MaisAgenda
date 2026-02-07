@@ -72,15 +72,18 @@ function normalizeName(n: string) {
 }
 
 function findBestMatch(text: string, items: any[]) {
-    const t = text.toLowerCase()
-    let best: string | null = null
-    let score = 0
+    const t = text.toLowerCase().replace(/[\[\]\(\)]/g, "").trim()
+    let best: any = null
+    let longestMatch = 0
+
     for (const item of items) {
-        const name = normalizeName(item.name)
-        if (new RegExp(`\\b${name}\\b`).test(t)) return item.name
-        if (t.includes(name) && name.length > score) {
-            best = item.name
-            score = name.length
+        const name = item.name.toLowerCase().trim()
+        // Match exato ou o nome do item está contido no texto
+        if (t.includes(name)) {
+            if (name.length > longestMatch) {
+                longestMatch = name.length
+                best = item.name
+            }
         }
     }
     return best
@@ -114,32 +117,30 @@ function parseMessage(textRaw: string, accounts: any[], cards: any[]) {
 
     const isPending = text.includes("pendente")
     let type: "income" | "expense" | "transfer" = "expense"
-    if (text.match(/\b(recebi|ganhei|vendi)\b/)) type = "income"
-    if (text.match(/\btransferi|transferência|transferencia\b/)) type = "transfer"
+    if (text.match(/\b(recebi|ganhei|vendi|ganho)\b/)) type = "income"
+    if (text.match(/\b(transferi|transferência|transferencia)\b/)) type = "transfer"
 
-    let card = findBestMatch(text, cards)
-    let account = card ? undefined : findBestMatch(text, accounts)
+    let cardName = findBestMatch(text, cards)
+    let accountName = findBestMatch(text, accounts)
 
+    // Prioridade: se achou cartão, assume despesa cartão
     let description = textRaw
         .replace(/(\d+([.,]\d{1,2})?)/, "")
         .replace(/\b(cartão|credito|debito|pix|conta|pendente|pago)\b/gi, "")
-        .replace(/\b(recebi|ganhei|vendi|comprei|paguei|transferi)\b/gi, "")
+        .replace(/\b(recebi|ganhei|vendi|comprei|paguei|transferi|ganho)\b/gi, "")
         .trim()
 
     if (!description) description = "Sem descrição"
 
     let category = detectCategory(description)
-
-    // Monta título compatível com frontend
     let title = description
-    if (card) {
+
+    if (cardName) {
         type = "expense"
-        title = `${description} (${card})`
+        title = `${description} (${cardName})`
         category = "Cartão de Crédito"
-    } else if (account) {
-        title = `${description} [${account}]`
-    } else if (type === "transfer") {
-        title = `${description}: ${account || "Origem"} -> ${card || "Destino"}`
+    } else if (accountName) {
+        title = `${description} [${accountName}]`
     }
 
     return {
@@ -149,8 +150,8 @@ function parseMessage(textRaw: string, accounts: any[], cards: any[]) {
         category,
         title,
         status: isPending ? "pending" : "paid",
-        account,
-        card,
+        account: accountName,
+        card: cardName,
         date: new Date().toISOString()
     }
 }
@@ -160,7 +161,21 @@ function parseMessage(textRaw: string, accounts: any[], cards: any[]) {
 ========================= */
 
 async function finalizeTransaction(chatId: any, profile: any, d: any, supabase: any, token: string) {
-    // 1. Inserir transação
+    let accounts = [...(profile.user_accounts || [])]
+    let cards = [...(profile.user_cards || [])]
+    let updated = false
+    let currentBalanceStr = ""
+
+    // 1. Lógica de Conta Padrão se nada foi identificado
+    if (!d.card && !d.account && profile.default_account_id) {
+        const defAcc = accounts.find(a => String(a.id) === String(profile.default_account_id))
+        if (defAcc) {
+            d.account = defAcc.name
+            d.title = `${d.title} [${d.account}]`
+        }
+    }
+
+    // 2. Inserir transação
     await supabase.from("transactions").insert({
         user_id: profile.id,
         title: d.title,
@@ -171,17 +186,15 @@ async function finalizeTransaction(chatId: any, profile: any, d: any, supabase: 
         status: d.status
     })
 
-    // 2. Atualizar Saldos se estiver pago
+    // 3. Atualizar Saldos se estiver pago
     if (d.status === "paid") {
-        let accounts = [...(profile.user_accounts || [])]
-        let cards = [...(profile.user_cards || [])]
-        let updated = false
-
         if (d.card) {
             cards = cards.map(c => {
                 if (c.name === d.card) {
                     updated = true
-                    return { ...c, value: (Number(c.value || 0) - d.amount).toString() }
+                    const newVal = Number(c.value || 0) - d.amount
+                    currentBalanceStr = `\n💳 <b>Novo Limite:</b> R$ ${newVal.toFixed(2)}`
+                    return { ...c, value: newVal.toString() }
                 }
                 return c
             })
@@ -191,6 +204,7 @@ async function finalizeTransaction(chatId: any, profile: any, d: any, supabase: 
                     updated = true
                     const current = Number(a.value || 0)
                     const newValue = d.type === "income" ? current + d.amount : current - d.amount
+                    currentBalanceStr = `\n🏦 <b>Novo Saldo:</b> R$ ${newValue.toFixed(2)}`
                     return { ...a, value: newValue.toString() }
                 }
                 return a
@@ -212,7 +226,8 @@ async function finalizeTransaction(chatId: any, profile: any, d: any, supabase: 
         `💰 R$ ${d.amount.toFixed(2)}\n` +
         `📂 ${d.category}\n` +
         `📌 ${d.type === "income" ? "Receita" : "Despesa"}\n` +
-        `📅 ${new Date(d.date).toLocaleDateString("pt-BR")}`,
+        `📅 ${new Date(d.date).toLocaleDateString("pt-BR")}` +
+        currentBalanceStr,
         token
     )
 }
